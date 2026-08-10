@@ -262,3 +262,24 @@ En esta capa se calcularán:
 - El usuario consultará información mediante un entorno controlado.
 - El MVP estará orientado al análisis financiero personal y no sustituirá asesoría financiera profesional.
 - Los modelos de IA ofrecerán recomendaciones basadas en los datos disponibles y no tomarán decisiones automáticas por el usuario.
+
+---
+
+## Stack
+Docker, Apache Airflow, MinIO, PostgreSQL, PySpark, Pandas,
+Great Expectations, Delta Lake/Parquet, Ollama y Streamlit.
+
+## Levantamiento
+```bash
+cp .env.example .env
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+## Interfaces
+- Airflow: http://localhost:8080
+- MinIO Console: http://localhost:9001
+- Streamlit: http://localhost:8501
+- Ollama API: http://localhost:11434
+- PostgreSQL: localhost:5432
