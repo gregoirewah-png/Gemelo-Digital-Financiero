@@ -1,264 +1,561 @@
-# Arquitectura Empresarial
-## Proyecto: Gemelo Digital Financiero Personal
+# Arquitectura del Proyecto
+## Gemelo Digital Financiero Personal
+
+## 1. Objetivo de la arquitectura
+
+La arquitectura tiene como objetivo establecer una plataforma de datos reproducible, escalable y trazable para el desarrollo de un Gemelo Digital Financiero Personal.
+
+La solución integrará tres datasets relacionados con finanzas personales y los procesará mediante una arquitectura de datos basada en las capas Bronze, Silver y Gold. Los datos serán almacenados en MinIO, procesados mediante PySpark y Pandas, validados mediante Great Expectations y orquestados mediante Apache Airflow.
+
+La información procesada alimentará indicadores financieros, procesos de Machine Learning y un modelo de lenguaje ejecutado localmente mediante Ollama. Finalmente, Streamlit proporcionará la interfaz de interacción con el usuario.
 
 ---
 
-# 1. Definición del Problema y Usuario
+## 2. Arquitectura general
 
-## Problema de negocio
+```mermaid
+flowchart TD
 
-Actualmente, muchas personas administran sus finanzas utilizando únicamente aplicaciones bancarias que muestran información histórica sobre ingresos, gastos y deudas, pero ofrecen poca capacidad para interpretar el impacto de futuras decisiones financieras.
+    A["Dataset 1<br/>Transacciones personales"]
+    B["Dataset 2<br/>Perfil financiero"]
+    C["Dataset 3<br/>Machine Learning"]
 
-Los usuarios suelen preguntarse:
+    A --> D["Apache Airflow<br/>Orquestación"]
+    B --> D
+    C --> D
 
-- ¿Me conviene realizar esta compra?
-- ¿Puedo adquirir este producto a crédito sin afectar mi estabilidad financiera?
-- ¿Estoy gastando demasiado en alguna categoría?
-- ¿Cómo puedo mejorar mi capacidad de ahorro?
-- ¿Qué impacto tendría solicitar un nuevo préstamo?
+    D --> E["MinIO<br/>Data Lake"]
 
-Responder estas preguntas requiere analizar simultáneamente ingresos, gastos, hábitos de consumo, préstamos y uso del crédito, información que normalmente se encuentra distribuida en diferentes fuentes y no se analiza de forma integral.
+    E --> F["Bronze<br/>Datos originales"]
 
-El proyecto busca resolver este problema mediante la construcción de un **Gemelo Digital Financiero Personal**, capaz de integrar múltiples fuentes de información financiera para generar una representación digital del estado financiero del usuario y apoyar la toma de decisiones mediante análisis de datos e Inteligencia Artificial.
+    F --> G["PySpark / Pandas<br/>Procesamiento"]
 
----
+    G --> H["Great Expectations<br/>Validación de calidad"]
 
-## Usuario objetivo
+    H --> I["Silver<br/>Datos limpios y transformados"]
 
-La solución está orientada a personas que desean administrar mejor sus finanzas personales y comprender el impacto de sus decisiones económicas antes de realizarlas.
+    I --> J["PySpark / SQL<br/>Transformación analítica"]
 
-El usuario podrá consultar información relacionada con:
+    J --> K["Gold<br/>Datos analíticos"]
 
-- Gastos personales
-- Hábitos de consumo
-- Uso de tarjetas de crédito
-- Endeudamiento
-- Capacidad de ahorro
-- Riesgo financiero
-- Conveniencia de realizar compras a crédito
+    K --> L["PostgreSQL<br/>KPIs y resultados"]
 
----
+    K --> M["Machine Learning<br/>Predicción / clasificación"]
 
-## Valor esperado
+    L --> N["Streamlit<br/>Gemelo Digital"]
 
-El proyecto permitirá al usuario:
+    M --> N
 
-- Centralizar su información financiera.
-- Conocer su situación financiera actual.
-- Detectar patrones de gasto.
-- Analizar el impacto de futuras compras.
-- Evaluar el riesgo asociado al uso del crédito.
-- Obtener recomendaciones financieras mediante consultas en lenguaje natural.
+    N --> O["Ollama<br/>Modelo de lenguaje"]
 
----
-
-# 2. Datos
-
-## Dataset candidato
-
-### Dataset 1 — Personal Transactions
-
-**Propósito**
-
-Registrar el comportamiento financiero diario del usuario.
-
-**Información principal**
-
-- ingresos
-- gastos
-- categorías
-- fechas
-- método de pago
-- comercios
-
-**Justificación**
-
-Este dataset representa la principal fuente para analizar hábitos financieros y calcular indicadores de gasto y ahorro.
-
----
-
-### Dataset 2 — Synthetic Personal Finance Dataset
-
-**Propósito**
-
-Representar la situación financiera general del usuario.
-
-**Información principal**
-
-- ingreso mensual
-- ahorro
-- score crediticio
-- préstamos
-- deuda
-- patrimonio
-- relación deuda-ingreso
-
-**Justificación**
-
-Permite construir el perfil financiero del usuario y evaluar su capacidad de pago y nivel de riesgo.
-
----
-
-### Dataset 3 — Personal ML Dataset
-
-**Propósito**
-
-Servir como conjunto de datos para el desarrollo y evaluación del modelo de Machine Learning del proyecto. Este dataset contiene variables financieras y demográficas que permiten identificar patrones en el comportamiento financiero de los usuarios y generar recomendaciones personalizadas.
-
-**Información principal**
-
-- Edad
-- Ingreso mensual
-- Gasto mensual
-- Ahorro
-- Score crediticio
-- Relación deuda/ingreso
-- Estado laboral
-- Nivel educativo
-- Tipo de préstamo
-- Tasa de interés
-- Pago mensual del préstamo
-
-**Justificación**
-
-Este dataset será utilizado para entrenar el modelo de Machine Learning que apoyará al Gemelo Digital Financiero Personal en la generación de recomendaciones y en la evaluación del riesgo financiero de un usuario. Sus variables permiten construir modelos de clasificación o regresión para estimar el comportamiento financiero y complementar el análisis realizado sobre los datos transaccionales.
-
----
-
-## Viabilidad
-
-Los tres datasets son públicos, ampliamente utilizados para fines académicos y permiten desarrollar un Producto Mínimo Viable (MVP) sin utilizar información sensible de usuarios reales.
-
----
-
-## KPIs mínimos (MVP)
-
-### 1. Capacidad de ahorro
-
-Calcula el porcentaje del ingreso mensual que permanece disponible después de cubrir los gastos.
-
----
-
-### 2. Utilización del crédito
-
-Porcentaje de utilización del límite de crédito disponible.
-
----
-
-### 3. Índice de riesgo financiero
-
-Indicador calculado considerando variables como:
-
-- deuda
-- ingresos
-- score crediticio
-- utilización del crédito
-
----
-
-# 3. Flujo de datos
-
-```
-                    Datasets Públicos
-──────────────────────────────────────────────────────
-
- Personal Transactions
-
- Synthetic Personal Finance
-
- Personal Finance ML Dataset
-
-                │
-                ▼
-
-        Ingesta Automatizada
-
-                │
-                ▼
-
-             Bronze
-
- Almacenamiento de datos originales
- sin modificaciones.
-
-                │
-                ▼
-
-             Silver
-
- Limpieza
- Normalización
- Conversión de tipos
- Eliminación de duplicados
- Integración de datasets
-
-                │
-                ▼
-
-              Gold
-
- KPIs
- Perfil financiero
- Indicadores
- Dataset analítico
-
-                │
-                ▼
-
- Dashboard + Asistente IA
+    O --> N
 ```
 
 ---
 
-# 4. Estrategia Bronze / Silver / Gold
+## 3. Flujo de datos
 
-## Bronze
+El flujo de datos comienza con la incorporación de los tres datasets seleccionados. Apache Airflow será responsable de orquestar las diferentes etapas del pipeline.
 
-Se almacenarán los datasets originales sin realizar modificaciones, preservando su estructura para garantizar trazabilidad.
+Los datos originales se almacenarán en la capa Bronze dentro de MinIO. Esta capa conservará los datos en su estado original para mantener trazabilidad y permitir su reprocesamiento.
 
----
+Posteriormente, PySpark y Pandas realizarán las operaciones de limpieza y transformación. Great Expectations validará la calidad de los datos antes de permitir su incorporación a la capa Silver.
 
-## Silver
+La capa Silver contendrá datos limpios, estandarizados y estructurados. A partir de esta información se generará la capa Gold, orientada al análisis, generación de KPIs y preparación de características para Machine Learning.
 
-En esta capa se realizarán procesos de:
+Los resultados analíticos podrán almacenarse en PostgreSQL para facilitar su consulta desde la aplicación Streamlit.
 
-- limpieza
-- normalización
-- validación
-- eliminación de duplicados
-- estandarización de formatos
-- integración de la información
+El modelo de Machine Learning utilizará los datos preparados en Gold para generar predicciones o clasificaciones relacionadas con el riesgo financiero. Ollama será utilizado como componente de lenguaje para interpretar la información financiera disponible y generar respuestas comprensibles para el usuario.
 
 ---
 
-## Gold
+## 4. Capas de datos
 
-Se construirán tablas analíticas optimizadas para el consumo por dashboards y modelos de Inteligencia Artificial.
+### 4.1 Bronze
 
-En esta capa se calcularán:
+La capa Bronze almacena los datos originales provenientes de las fuentes de información.
 
-- KPIs financieros
-- indicadores de riesgo
-- utilización del crédito
-- capacidad de ahorro
-- perfil financiero consolidado
+Características:
+
+- Conservación de los datos originales.
+- Mínima transformación.
+- Trazabilidad del origen.
+- Registro de fecha de ingestión.
+- Identificación de la ejecución del pipeline.
+- Posibilidad de reprocesamiento.
+
+Estructura propuesta:
+
+```text
+bronze/
+├── transactions/
+├── financial_profile/
+└── ml/
+```
 
 ---
 
-# 5. Riesgos y Supuestos
+### 4.2 Silver
 
-## Riesgos técnicos y operativos
+La capa Silver contiene información limpia, validada y transformada.
 
-- Los datasets utilizan diferentes identificadores de usuario, por lo que será necesario definir una estrategia de integración.
-- Los datos pueden contener valores faltantes o inconsistentes que requieran procesos adicionales de limpieza.
-- La curva de aprendizaje de herramientas como Apache Spark, Airflow y Docker puede incrementar los tiempos de desarrollo.
-- El procesamiento distribuido puede requerir optimización para ejecutarse correctamente en un entorno local.
+En esta capa se realizarán procesos como:
+
+- Conversión de tipos de datos.
+- Tratamiento de valores nulos.
+- Eliminación de duplicados.
+- Normalización de nombres.
+- Validación de rangos.
+- Estandarización de categorías.
+- Integración de información relacionada.
+
+Great Expectations será utilizado para verificar las reglas de calidad antes de considerar los datos como aptos para análisis.
+
+Estructura propuesta:
+
+```text
+silver/
+├── transactions/
+├── financial_profile/
+└── ml/
+```
 
 ---
 
-## Supuestos
+### 4.3 Gold
 
-- Los datasets públicos representan adecuadamente escenarios de finanzas personales.
-- El usuario consultará información mediante un entorno controlado.
-- El MVP estará orientado al análisis financiero personal y no sustituirá asesoría financiera profesional.
-- Los modelos de IA ofrecerán recomendaciones basadas en los datos disponibles y no tomarán decisiones automáticas por el usuario.
+La capa Gold contiene información preparada para consumo analítico, generación de indicadores y Machine Learning.
+
+Estructura propuesta:
+
+```text
+gold/
+├── financial_kpis/
+├── user_financial_profile/
+├── credit_risk_features/
+└── ml_features/
+```
+
+Los datos de esta capa podrán ser utilizados por:
+
+- Streamlit.
+- PostgreSQL.
+- Modelos de Machine Learning.
+- Procesos de análisis financiero.
+- Sistema de recomendaciones.
+
+---
+
+## 5. Componentes tecnológicos
+
+| Tecnología | Responsabilidad |
+|---|---|
+| Docker | Contenerización y reproducibilidad del entorno |
+| Apache Airflow | Orquestación de pipelines |
+| MinIO | Almacenamiento de objetos y Data Lake |
+| Delta Lake / Parquet | Formato de almacenamiento |
+| PySpark | Procesamiento y transformación de datos |
+| Pandas | Exploración y procesamiento de datos |
+| Great Expectations | Validación y control de calidad |
+| PostgreSQL | Almacenamiento relacional y consulta de resultados |
+| Ollama | Ejecución local del modelo de lenguaje |
+| Streamlit | Interfaz del Gemelo Digital |
+| Git / GitHub | Control de versiones y documentación |
+
+---
+
+## 6. Arquitectura de almacenamiento
+
+MinIO será utilizado como almacenamiento principal del Data Lake.
+
+La información se organizará siguiendo el modelo:
+
+```text
+MinIO
+│
+├── Bronze
+│   ├── transactions
+│   ├── financial_profile
+│   └── ml
+│
+├── Silver
+│   ├── transactions
+│   ├── financial_profile
+│   └── ml
+│
+└── Gold
+    ├── financial_kpis
+    ├── user_financial_profile
+    ├── credit_risk_features
+    └── ml_features
+```
+
+### Delta Lake / Parquet
+
+Se evaluará Delta Lake como formato principal para las capas del Data Lake. Delta Lake utiliza Parquet como formato de almacenamiento subyacente y permite incorporar capacidades adicionales de gestión de datos.
+
+La elección definitiva del formato se documentará como una decisión arquitectónica independiente después de realizar las pruebas correspondientes.
+
+---
+
+## 7. Procesamiento
+
+### PySpark
+
+PySpark será utilizado principalmente para las transformaciones de datos que requieran procesamiento estructurado y operaciones sobre conjuntos de datos.
+
+### Pandas
+
+Pandas será utilizado principalmente para:
+
+- Exploración inicial.
+- Análisis descriptivo.
+- Preparación de datos para Machine Learning.
+- Operaciones de menor volumen.
+
+La selección entre PySpark y Pandas dependerá del volumen y complejidad de cada operación.
+
+---
+
+## 8. Calidad de datos
+
+Great Expectations será integrado al pipeline para validar la calidad de los datos.
+
+Ejemplos de reglas:
+
+```text
+Edad
+→ Debe encontrarse dentro de un rango válido.
+
+Ingreso mensual
+→ No debe ser negativo.
+
+Gastos mensuales
+→ No deben ser negativos.
+
+Credit Score
+→ Debe encontrarse dentro del rango definido por el dataset.
+
+Registros
+→ No deben contener duplicados cuando exista una clave única.
+```
+
+Flujo:
+
+```mermaid
+flowchart LR
+    A["Datos transformados"] --> B["Great Expectations"]
+    B --> C{"Validación"}
+    C -->|PASS| D["Continuar pipeline"]
+    C -->|FAIL| E["Registrar error"]
+```
+
+---
+
+## 9. Machine Learning
+
+El componente de Machine Learning utilizará las características preparadas en la capa Gold.
+
+Flujo propuesto:
+
+```mermaid
+flowchart LR
+    A["Gold<br/>ML Features"] --> B["Pandas"]
+    B --> C["Preparación del dataset"]
+    C --> D["Entrenamiento"]
+    D --> E["Evaluación"]
+    E --> F["Modelo ML"]
+    F --> G["Predicción de riesgo"]
+    G --> H["PostgreSQL"]
+```
+
+El modelo tendrá como finalidad apoyar el análisis del riesgo financiero del usuario y complementar los indicadores obtenidos mediante el procesamiento de datos.
+
+---
+
+## 10. Gemelo Digital Financiero
+
+El Gemelo Digital Financiero será la capa de interacción con el usuario.
+
+El sistema combinará:
+
+1. Información financiera procesada.
+2. KPIs.
+3. Resultados del modelo de Machine Learning.
+4. Simulaciones de decisiones financieras.
+5. Modelo de lenguaje.
+
+Ejemplo conceptual:
+
+```text
+Usuario
+   │
+   ▼
+Streamlit
+   │
+   ├──► KPIs financieros
+   │
+   ├──► Perfil financiero
+   │
+   ├──► Riesgo financiero
+   │
+   └──► Simulación de compra
+             │
+             ▼
+        Ollama / LLM
+             │
+             ▼
+      Recomendación explicada
+```
+
+El modelo de lenguaje no será considerado sustituto del modelo de Machine Learning. El modelo de Machine Learning será responsable de generar resultados predictivos o clasificatorios, mientras que Ollama será utilizado para interpretar dichos resultados y facilitar la interacción mediante lenguaje natural.
+
+---
+
+## 11. PostgreSQL
+
+PostgreSQL será utilizado como sistema de almacenamiento relacional para información que requiera consultas estructuradas y acceso frecuente desde la aplicación.
+
+Entre las entidades potenciales se encuentran:
+
+```text
+financial_kpis
+risk_scores
+model_predictions
+pipeline_runs
+data_quality_results
+```
+
+El Data Lake en MinIO conservará los datos procesados, mientras que PostgreSQL funcionará como una capa relacional para resultados y metadatos seleccionados.
+
+---
+
+## 12. Orquestación
+
+Apache Airflow será responsable de coordinar las diferentes etapas del procesamiento.
+
+Flujo conceptual:
+
+```mermaid
+flowchart TD
+    A["Ingesta"] --> B["Bronze"]
+    B --> C["Transformación"]
+    C --> D["Validación"]
+    D --> E["Silver"]
+    E --> F["Transformación analítica"]
+    F --> G["Gold"]
+    G --> H["KPIs"]
+    G --> I["Machine Learning"]
+    H --> J["Carga PostgreSQL"]
+    I --> J
+```
+
+Las tareas serán organizadas mediante DAGs para permitir ejecuciones reproducibles y facilitar el monitoreo del pipeline.
+
+---
+
+## 13. Logs y métricas operativas
+
+Cada ejecución del pipeline deberá generar información suficiente para determinar su estado y detectar problemas.
+
+Métricas mínimas:
+
+| Métrica | Descripción |
+|---|---|
+| `run_id` | Identificador único de ejecución |
+| `pipeline_name` | Nombre del pipeline |
+| `start_time` | Hora de inicio |
+| `end_time` | Hora de finalización |
+| `duration_seconds` | Duración |
+| `records_read` | Registros leídos |
+| `records_processed` | Registros procesados |
+| `records_rejected` | Registros rechazados |
+| `records_written` | Registros almacenados |
+| `duplicate_records` | Duplicados detectados |
+| `validation_passed` | Validaciones exitosas |
+| `validation_failed` | Validaciones fallidas |
+| `pipeline_status` | Estado final |
+
+Ejemplo:
+
+```text
+Pipeline: transactions_pipeline
+Run ID: 2026-001
+
+Start: 2026-08-09 22:00:00
+End: 2026-08-09 22:00:12
+Duration: 12 seconds
+
+Records read: 10000
+Records processed: 9980
+Records rejected: 20
+Records written: 9980
+
+Validation passed: 14
+Validation failed: 1
+
+Status: SUCCESS
+```
+
+---
+
+## 14. Decisiones arquitectónicas
+
+Las decisiones técnicas se documentarán mediante Architecture Decision Records (ADR).
+
+### ADR-001 — Arquitectura Lakehouse
+
+**Decisión:** utilizar una arquitectura basada en las capas Bronze, Silver y Gold.
+
+**Justificación:** permite separar los datos originales, los datos procesados y los datos preparados para consumo analítico.
+
+**Consecuencia:** se requiere administrar procesos de ingestión y transformación entre las diferentes capas.
+
+---
+
+### ADR-002 — MinIO como almacenamiento
+
+**Decisión:** utilizar MinIO como almacenamiento de objetos para el Data Lake.
+
+**Justificación:** permite disponer de un almacenamiento compatible con una arquitectura basada en objetos y puede ejecutarse de manera local mediante Docker.
+
+**Consecuencia:** será necesario administrar buckets y estructuras de almacenamiento.
+
+---
+
+### ADR-003 — Apache Airflow para orquestación
+
+**Decisión:** utilizar Apache Airflow para coordinar los pipelines.
+
+**Justificación:** permite definir dependencias, programar ejecuciones y monitorear tareas.
+
+**Consecuencia:** el proyecto incorpora un componente adicional que requiere configuración y mantenimiento.
+
+---
+
+### ADR-004 — PySpark y Pandas
+
+**Decisión:** utilizar PySpark y Pandas de acuerdo con las características de cada procesamiento.
+
+**Justificación:** PySpark permite realizar transformaciones estructuradas y Pandas facilita la exploración y preparación de datos.
+
+**Consecuencia:** se deben definir criterios para evitar procesamiento duplicado o innecesario entre ambas herramientas.
+
+---
+
+### ADR-005 — Great Expectations
+
+**Decisión:** incorporar Great Expectations para validación de calidad.
+
+**Justificación:** permite convertir reglas de calidad en validaciones reproducibles dentro del pipeline.
+
+**Consecuencia:** las reglas de calidad deberán mantenerse junto con el código del proyecto.
+
+---
+
+### ADR-006 — PostgreSQL
+
+**Decisión:** utilizar PostgreSQL para resultados y metadatos que requieran consultas relacionales.
+
+**Justificación:** permite consultar eficientemente KPIs, resultados de modelos y métricas operativas desde la aplicación.
+
+**Consecuencia:** se deberá mantener sincronización entre los resultados del Data Lake y la información publicada en PostgreSQL.
+
+---
+
+### ADR-007 — Ollama
+
+**Decisión:** utilizar Ollama para ejecutar localmente el modelo de lenguaje.
+
+**Justificación:** permite incorporar capacidades de lenguaje natural sin depender directamente de una API externa durante el desarrollo.
+
+**Consecuencia:** el modelo utilizado deberá ser compatible con los recursos computacionales disponibles.
+
+---
+
+### ADR-008 — Streamlit
+
+**Decisión:** utilizar Streamlit como interfaz de usuario.
+
+**Justificación:** permite desarrollar rápidamente una interfaz interactiva en Python para visualizar KPIs y permitir consultas sobre el Gemelo Digital.
+
+**Consecuencia:** la aplicación deberá consumir información procesada desde las capas analíticas y/o PostgreSQL.
+
+---
+
+## 15. Estructura propuesta del repositorio
+
+```text
+gemelo-financiero/
+│
+├── README.md
+├── arquitectura.md
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+├── .gitignore
+│
+├── dags/
+│
+├── src/
+│   ├── ingestion/
+│   ├── transformation/
+│   ├── validation/
+│   ├── analytics/
+│   └── ml/
+│
+├── data/
+│   ├── bronze/
+│   ├── silver/
+│   └── gold/
+│
+├── sql/
+│   ├── staging/
+│   ├── transformations/
+│   └── analytics/
+│
+├── notebooks/
+│   ├── exploration/
+│   └── ml/
+│
+├── tests/
+├── configs/
+├── logs/
+├── models/
+│
+├── streamlit/
+│   └── app.py
+│
+└── docs/
+    ├── architecture/
+    ├── decisions/
+    └── diagrams/
+```
+
+---
+
+## 16. Riesgos técnicos
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Complejidad del stack | Alto | Implementación incremental |
+| Incompatibilidad entre datasets | Alto | Validación y estandarización en Silver |
+| Fallos de calidad de datos | Alto | Great Expectations |
+| Bajo rendimiento de Spark | Medio | Optimización y uso de Pandas cuando sea suficiente |
+| Consumo elevado de recursos por Ollama | Medio | Selección de modelo acorde al hardware |
+| Fallos en pipelines | Alto | Airflow, logs y reintentos |
+| Inconsistencias entre MinIO y PostgreSQL | Medio | Validaciones de carga y métricas de sincronización |
+
+---
+
+## 17. Principios arquitectónicos
+
+La solución seguirá los siguientes principios:
+
+1. **Trazabilidad:** cada dato deberá poder relacionarse con su fuente y ejecución de pipeline.
+2. **Reproducibilidad:** los componentes deberán poder ejecutarse mediante Docker.
+3. **Calidad:** los datos deberán validarse antes de llegar a las capas analíticas.
+4. **Separación de responsabilidades:** almacenamiento, procesamiento, validación, Machine Learning e interfaz tendrán responsabilidades independientes.
+5. **Observabilidad:** los pipelines deberán generar logs y métricas operativas.
+6. **Escalabilidad:** la arquitectura deberá permitir aumentar el volumen de datos sin modificar completamente el diseño.
+7. **Seguridad:** las credenciales y configuraciones sensibles no deberán almacenarse directamente en Git.
