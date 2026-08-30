@@ -1,0 +1,158 @@
+{
+    "dataset_name": "financial_profile",
+    "layer": "silver",
+    "description": "Dataset de perfil financiero, ingresos, gastos, ahorro, préstamos y crédito",
+
+    "columns": {
+        "user_id": {
+            "source_name": "user_id",
+            "type": "string",
+            "nullable": false,
+            "unique": true,
+            "description": "Identificador del usuario"
+        },
+
+        "age": {
+            "source_name": "age",
+            "type": "integer",
+            "nullable": false,
+            "description": "Edad del usuario"
+        },
+
+        "gender": {
+            "source_name": "gender",
+            "type": "string",
+            "nullable": false,
+            "description": "Género registrado del usuario"
+        },
+
+        "education_level": {
+            "source_name": "education_level",
+            "type": "string",
+            "nullable": false,
+            "description": "Nivel educativo"
+        },
+
+        "employment_status": {
+            "source_name": "employment_status",
+            "type": "string",
+            "nullable": false,
+            "description": "Situación laboral"
+        },
+
+        "job_title": {
+            "source_name": "job_title",
+            "type": "string",
+            "nullable": false,
+            "description": "Puesto o profesión del usuario"
+        },
+
+        "monthly_income_usd": {
+            "source_name": "monthly_income_usd",
+            "type": "double",
+            "nullable": false,
+            "description": "Ingreso mensual expresado en dólares"
+        },
+
+        "monthly_expenses_usd": {
+            "source_name": "monthly_expenses_usd",
+            "type": "double",
+            "nullable": false,
+            "description": "Gastos mensuales expresados en dólares"
+        },
+
+        "savings_usd": {
+            "source_name": "savings_usd",
+            "type": "double",
+            "nullable": false,
+            "description": "Ahorro disponible expresado en dólares"
+        },
+
+        "has_loan": {
+            "source_name": "has_loan",
+            "type": "boolean",
+            "nullable": false,
+            "description": "Indica si el usuario tiene un préstamo"
+        },
+
+        "loan_type": {
+            "source_name": "loan_type",
+            "type": "string",
+            "nullable": true,
+            "description": "Tipo de préstamo del usuario"
+        },
+
+        "loan_amount_usd": {
+            "source_name": "loan_amount_usd",
+            "type": "double",
+            "nullable": true,
+            "description": "Monto del préstamo expresado en dólares"
+        },
+
+        "loan_term_months": {
+            "source_name": "loan_term_months",
+            "type": "integer",
+            "nullable": true,
+            "description": "Plazo del préstamo en meses"
+        },
+
+        "monthly_emi_usd": {
+            "source_name": "monthly_emi_usd",
+            "type": "double",
+            "nullable": true,
+            "description": "Pago mensual estimado del préstamo"
+        },
+
+        "loan_interest_rate_pct": {
+            "source_name": "loan_interest_rate_pct",
+            "type": "double",
+            "nullable": true,
+            "description": "Tasa de interés del préstamo expresada como porcentaje"
+        },
+
+        "debt_to_income_ratio": {
+            "source_name": "debt_to_income_ratio",
+            "type": "double",
+            "nullable": false,
+            "description": "Relación entre deuda e ingreso"
+        },
+
+        "credit_score": {
+            "source_name": "credit_score",
+            "type": "integer",
+            "nullable": false,
+            "description": "Puntuación crediticia del usuario"
+        },
+
+        "savings_to_income_ratio": {
+            "source_name": "savings_to_income_ratio",
+            "type": "double",
+            "nullable": false,
+            "description": "Relación entre ahorro e ingreso"
+        },
+
+        "region": {
+            "source_name": "region",
+            "type": "string",
+            "nullable": false,
+            "description": "Región geográfica registrada"
+        },
+
+        "record_date": {
+            "source_name": "record_date",
+            "type": "date",
+            "nullable": false,
+            "description": "Fecha de registro de la información"
+        }
+    },
+
+    "quality_rules": [
+        "user_id debe ser único y no nulo",
+        "age debe ser mayor o igual a 18",
+        "monthly_income_usd debe ser mayor o igual a cero",
+        "monthly_expenses_usd debe ser mayor o igual a cero",
+        "credit_score debe encontrarse entre 300 y 850",
+        "debt_to_income_ratio debe ser mayor o igual a cero",
+        "record_date debe ser una fecha válida"
+    ]
+}

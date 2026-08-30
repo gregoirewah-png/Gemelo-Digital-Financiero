@@ -559,3 +559,145 @@ La solución seguirá los siguientes principios:
 5. **Observabilidad:** los pipelines deberán generar logs y métricas operativas.
 6. **Escalabilidad:** la arquitectura deberá permitir aumentar el volumen de datos sin modificar completamente el diseño.
 7. **Seguridad:** las credenciales y configuraciones sensibles no deberán almacenarse directamente en Git.
+
+---
+
+## 18. Gobierno de datos
+
+**Dominios controlados**
+
+El dataset `personal_transactions` contiene campos categóricos cuyo
+contenido presenta inconsistencias de capitalización y espacios en
+blanco. Estas variaciones representan el mismo valor lógico y serán
+normalizadas durante la transformación Bronze → Silver.
+
+**Campo `type`**
+
+Los valores válidos en Silver serán:
+
+- `Income`
+- `Expense`
+
+Las variantes detectadas en Bronze incluyen diferencias de
+mayúsculas/minúsculas y espacios en blanco.
+
+**Campo `category`**
+
+Los valores válidos en Silver serán:
+
+- `Rent`
+- `Travel`
+- `Utilities`
+- `Health & Fitness`
+- `Shopping`
+- `Food & Drink`
+- `Entertainment`
+- `Salary`
+- `Investment`
+- `Other`
+
+Las variantes de capitalización y espacios serán normalizadas antes de
+la validación de calidad.
+
+**Reglas de normalización**
+
+1. Eliminación de espacios iniciales y finales mediante `trim`.
+2. Normalización de capitalización de valores categóricos.
+3. Conversión de `amount` al tipo numérico `double`.
+4. Conversión de `date` al tipo `date`.
+5. Eliminación de registros duplicados.
+6. Validación de valores categóricos contra los dominios permitidos.
+
+**Dataset: credit_card_behavior**
+
+| Nombre original | Nombre Silver | Tipo | Nulo | Descripción |
+|---|---|---|---|---|
+| CUST_ID | cust_id | string | No | Identificador único del cliente |
+| BALANCE | balance | double | No | Saldo actual |
+| BALANCE_FREQUENCY | balance_frequency | double | No | Frecuencia de actualización del saldo |
+| PURCHASES | purchases | double | No | Monto total de compras |
+| ONEOFF_PURCHASES | oneoff_purchases | double | No | Compras de una sola exhibición |
+| INSTALLMENTS_PURCHASES | installments_purchases | double | No | Compras a plazos |
+| CASH_ADVANCE | cash_advance | double | No | Disposiciones de efectivo |
+| PURCHASES_FREQUENCY | purchases_frequency | double | No | Frecuencia de compras |
+| ONEOFF_PURCHASES_FREQUENCY | oneoff_purchases_frequency | double | No | Frecuencia de compras de una sola exhibición |
+| PURCHASES_INSTALLMENTS_FREQUENCY | purchases_installments_frequency | double | No | Frecuencia de compras a plazos |
+| CASH_ADVANCE_FREQUENCY | cash_advance_frequency | double | No | Frecuencia de disposiciones de efectivo |
+| CASH_ADVANCE_TRX | cash_advance_trx | integer | No | Número de disposiciones de efectivo |
+| PURCHASES_TRX | purchases_trx | integer | No | Número de transacciones de compra |
+| CREDIT_LIMIT | credit_limit | double | No | Límite de crédito |
+| PAYMENTS | payments | double | No | Pagos realizados |
+| MINIMUM_PAYMENTS | minimum_payments | double | No | Pago mínimo |
+| PRC_FULL_PAYMENT | prc_full_payment | double | No | Proporción de pagos completos |
+| TENURE | tenure | integer | No | Antigüedad del cliente |
+
+**Reglas de calidad**
+
+1. `cust_id` debe ser único y no nulo.
+2. Los campos monetarios no deben contener valores negativos.
+3. `credit_limit` debe ser mayor que cero.
+4. Los campos de frecuencia deben encontrarse entre 0 y 1.
+5. `tenure` debe representar un número entero positivo.
+
+**Dataset: financial_profile**
+
+| Nombre original | Nombre Silver | Tipo | Nulo | Descripción |
+|---|---|---|---|---|
+| user_id | user_id | string | No | Identificador del usuario |
+| age | age | integer | No | Edad |
+| gender | gender | string | No | Género |
+| education_level | education_level | string | No | Nivel educativo |
+| employment_status | employment_status | string | No | Situación laboral |
+| job_title | job_title | string | No | Puesto o profesión |
+| monthly_income_usd | monthly_income_usd | double | No | Ingreso mensual |
+| monthly_expenses_usd | monthly_expenses_usd | double | No | Gastos mensuales |
+| savings_usd | savings_usd | double | No | Ahorro disponible |
+| has_loan | has_loan | boolean | No | Indicador de préstamo |
+| loan_type | loan_type | string | Sí | Tipo de préstamo |
+| loan_amount_usd | loan_amount_usd | double | Sí | Monto del préstamo |
+| loan_term_months | loan_term_months | integer | Sí | Plazo del préstamo |
+| monthly_emi_usd | monthly_emi_usd | double | Sí | Pago mensual |
+| loan_interest_rate_pct | loan_interest_rate_pct | double | Sí | Tasa de interés |
+| debt_to_income_ratio | debt_to_income_ratio | double | No | Relación deuda-ingreso |
+| credit_score | credit_score | integer | No | Puntuación crediticia |
+| savings_to_income_ratio | savings_to_income_ratio | double | No | Relación ahorro-ingreso |
+| region | region | string | No | Región |
+| record_date | record_date | date | No | Fecha de registro |
+
+**Reglas de calidad**
+
+1. `user_id` debe ser único y no nulo.
+2. `age` debe ser mayor o igual a 18.
+3. `monthly_income_usd` debe ser mayor o igual a cero.
+4. `monthly_expenses_usd` debe ser mayor o igual a cero.
+5. `credit_score` debe encontrarse entre 300 y 850.
+6. `debt_to_income_ratio` debe ser mayor o igual a cero.
+7. `record_date` debe contener una fecha válida.
+8. Si `has_loan` es `true`, los campos relacionados con el préstamo deben contener información válida.
+
+**Convención de nomenclatura**
+
+Todos los nombres de columnas de la capa Silver deberán utilizar
+`snake_case`, es decir, letras minúsculas y guiones bajos como
+separadores.
+
+Ejemplo:
+
+`Transaction Description` → `transaction_description`
+
+`CREDIT_LIMIT` → `credit_limit`
+
+Los datasets utilizarán una nomenclatura asociada a la capa de
+procesamiento:
+
+- `<dataset>_bronze`
+- `<dataset>_silver`
+- `<dataset>_gold`
+
+La capa Bronze conservará el contenido original del dataset, mientras
+que Silver contendrá los datos estandarizados, tipificados, depurados y
+validados.
+
+La capa Gold contendrá posteriormente los datos preparados para el
+cálculo de KPIs, análisis financiero y consumo por las aplicaciones del
+Gemelo Digital Financiero.

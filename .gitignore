@@ -1,0 +1,32 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+data/bronze/*
+data/silver/*
+data/gold/*
+
+# Logs
+logs/*
+*.log
+
+# Models
+models/*
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+
+# Docker
+*.pid

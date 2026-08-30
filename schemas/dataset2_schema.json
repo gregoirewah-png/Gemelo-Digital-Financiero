@@ -1,0 +1,142 @@
+{
+    "dataset_name": "credit_card_behavior",
+    "layer": "silver",
+    "description": "Dataset de comportamiento financiero y uso de tarjetas de crédito",
+
+    "columns": {
+        "cust_id": {
+            "source_name": "CUST_ID",
+            "type": "string",
+            "nullable": false,
+            "unique": true,
+            "description": "Identificador único del cliente"
+        },
+
+        "balance": {
+            "source_name": "BALANCE",
+            "type": "double",
+            "nullable": false,
+            "description": "Saldo actual de la cuenta"
+        },
+
+        "balance_frequency": {
+            "source_name": "BALANCE_FREQUENCY",
+            "type": "double",
+            "nullable": false,
+            "description": "Frecuencia de actualización del saldo"
+        },
+
+        "purchases": {
+            "source_name": "PURCHASES",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto total de compras realizadas"
+        },
+
+        "oneoff_purchases": {
+            "source_name": "ONEOFF_PURCHASES",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto de compras realizadas en una sola exhibición"
+        },
+
+        "installments_purchases": {
+            "source_name": "INSTALLMENTS_PURCHASES",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto de compras realizadas a plazos"
+        },
+
+        "cash_advance": {
+            "source_name": "CASH_ADVANCE",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto de disposiciones de efectivo"
+        },
+
+        "purchases_frequency": {
+            "source_name": "PURCHASES_FREQUENCY",
+            "type": "double",
+            "nullable": false,
+            "description": "Frecuencia de compras"
+        },
+
+        "oneoff_purchases_frequency": {
+            "source_name": "ONEOFF_PURCHASES_FREQUENCY",
+            "type": "double",
+            "nullable": false,
+            "description": "Frecuencia de compras de una sola exhibición"
+        },
+
+        "purchases_installments_frequency": {
+            "source_name": "PURCHASES_INSTALLMENTS_FREQUENCY",
+            "type": "double",
+            "nullable": false,
+            "description": "Frecuencia de compras a plazos"
+        },
+
+        "cash_advance_frequency": {
+            "source_name": "CASH_ADVANCE_FREQUENCY",
+            "type": "double",
+            "nullable": false,
+            "description": "Frecuencia de disposiciones de efectivo"
+        },
+
+        "cash_advance_trx": {
+            "source_name": "CASH_ADVANCE_TRX",
+            "type": "integer",
+            "nullable": false,
+            "description": "Número de transacciones de disposición de efectivo"
+        },
+
+        "purchases_trx": {
+            "source_name": "PURCHASES_TRX",
+            "type": "integer",
+            "nullable": false,
+            "description": "Número de transacciones de compra"
+        },
+
+        "credit_limit": {
+            "source_name": "CREDIT_LIMIT",
+            "type": "double",
+            "nullable": false,
+            "description": "Límite de crédito disponible"
+        },
+
+        "payments": {
+            "source_name": "PAYMENTS",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto total de pagos realizados"
+        },
+
+        "minimum_payments": {
+            "source_name": "MINIMUM_PAYMENTS",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto mínimo de pago"
+        },
+
+        "prc_full_payment": {
+            "source_name": "PRC_FULL_PAYMENT",
+            "type": "double",
+            "nullable": false,
+            "description": "Proporción de pagos realizados completamente"
+        },
+
+        "tenure": {
+            "source_name": "TENURE",
+            "type": "integer",
+            "nullable": false,
+            "description": "Antigüedad del cliente en meses"
+        }
+    },
+
+    "quality_rules": [
+        "cust_id debe ser único y no nulo",
+        "Los campos monetarios no deben contener valores negativos",
+        "credit_limit debe ser mayor que cero",
+        "Las frecuencias deben encontrarse entre 0 y 1",
+        "tenure debe representar un número entero positivo"
+    ]
+}

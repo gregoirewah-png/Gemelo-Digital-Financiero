@@ -1,0 +1,58 @@
+{
+    "dataset_name": "personal_transactions",
+    "layer": "silver",
+    "description": "Dataset de transacciones financieras personales",
+
+    "columns": {
+        "date": {
+            "source_name": "Date",
+            "type": "date",
+            "nullable": false,
+            "description": "Fecha en la que se realizó la transacción"
+        },
+
+        "transaction_description": {
+            "source_name": "Transaction Description",
+            "type": "string",
+            "nullable": false,
+            "description": "Descripción de la transacción"
+        },
+
+        "category": {
+            "source_name": "Category",
+            "type": "string",
+            "nullable": false,
+            "description": "Categoría financiera asociada a la transacción",
+            "allowed_values": [
+                "Rent",
+                "Travel",
+                "Utilities",
+                "Health & Fitness",
+                "Shopping",
+                "Food & Drink",
+                "Entertainment",
+                "Salary",
+                "Investment",
+                "Other"
+            ]
+        },
+
+        "amount": {
+            "source_name": "Amount",
+            "type": "double",
+            "nullable": false,
+            "description": "Monto monetario de la transacción"
+        },
+
+        "type": {
+            "source_name": "Type",
+            "type": "string",
+            "nullable": false,
+            "description": "Tipo de transacción",
+            "allowed_values": [
+                "Income",
+                "Expense"
+            ]
+        }
+    }
+}

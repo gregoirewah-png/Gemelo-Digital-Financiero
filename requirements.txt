@@ -1,0 +1,11 @@
+pandas
+pyspark
+great-expectations
+delta-spark
+psycopg2-binary
+sqlalchemy
+minio
+apache-airflow-providers-postgres
+scikit-learn
+streamlit
+requests
