@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  airflow:
+    build: .
+    container_name: airflow_gemelo
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
+      - ./schemas:/opt/airflow/schemas
+    command: standalone

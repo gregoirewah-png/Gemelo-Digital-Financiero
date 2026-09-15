@@ -273,7 +273,7 @@ Great Expectations, Delta Lake/Parquet, Ollama y Streamlit.
 ```bash
 cp .env.example .env
 docker compose build
-docker compose up -d
+docker compose -f docker-compose-airflow.yml up --build -d
 docker compose ps
 ```
 
