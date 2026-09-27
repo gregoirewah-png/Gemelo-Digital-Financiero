@@ -13,11 +13,28 @@ def to_snake_case(name):
     return re.sub(r'_+', '_', s2)
 
 def get_spark_session():
-    return SparkSession.builder \
-        .appName("BronzeToSilver_FinancialProfile") \
+    spark = SparkSession.builder \
+        .appName("BronzeToSilver_Con_MinIO") \
+        .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
+        .config("spark.hadoop.fs.s3a.endpoint", "http://gemelo-minio:9000") \
+        .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
+        .config("spark.hadoop.fs.s3a.secret.key", "minioadmin123") \
+        .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+        .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider") \
         .config("spark.sql.parquet.writeLegacyFormat", "true") \
         .config("spark.sql.ansi.enabled", "false") \
+        .config("spark.sql.shuffle.partitions", "2") \
+        .config("spark.driver.memory", "1g") \
         .getOrCreate()
+
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+    hadoop_conf.set("fs.s3a.connection.timeout", "600000")
+    hadoop_conf.set("fs.s3a.connection.establish.timeout", "600000")
+    hadoop_conf.set("fs.s3a.threads.keepalivetime", "60")
+    hadoop_conf.set("fs.s3a.multipart.purge.age", "86400")
+
+    return spark
 
 def process_financial_profile():
     start_time = time.time()
@@ -25,11 +42,11 @@ def process_financial_profile():
     
     # 1. Definir Rutas (Absolutas dinámicas)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    
-    bronze_path = os.path.join(BASE_DIR, "data", "bronze", "Dataset3") + "/"
-    silver_path = os.path.join(BASE_DIR, "data", "silver", "financial_profile")
-    quarantine_path = os.path.join(BASE_DIR, "data", "quarantine", "Dataset3")
     schema_path = os.path.join(BASE_DIR, "schemas", "dataset3_schema.json")
+    
+    bronze_path = "s3a://bronze/Dataset3/*/*.csv"
+    silver_path = "s3a://silver/financial_profile"
+    quarantine_path = "s3a://quarantine/Dataset3"
     
     print("--- Iniciando transformación de financial_profile ---")
     

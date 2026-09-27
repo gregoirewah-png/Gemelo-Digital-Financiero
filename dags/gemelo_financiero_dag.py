@@ -31,7 +31,7 @@ default_args = {
     'start_date': datetime(2026, 8, 30),
     # Políticas de Tolerancia a Fallos
     'retries': 3,                           
-    'retry_delay': timedelta(minutes=2),    
+    'retry_delay': timedelta(seconds=2),    
     'on_failure_callback': task_failure_alert, 
 }
 

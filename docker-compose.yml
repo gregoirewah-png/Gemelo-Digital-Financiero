@@ -1,48 +1,63 @@
+version: '3.8'
+
 services:
+  airflow:
+    build: .
+    container_name: airflow_gemelo
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@gemelo-postgres:5432/${POSTGRES_DB:-gemelo_db}
+      - AIRFLOW_USER=admin
+      - AIRFLOW_PASSWORD=admin
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
+      - ./schemas:/opt/airflow/schemas
+      - ./logs:/opt/airflow/logs
+    command: standalone
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
 
   postgres:
     image: postgres:16
     container_name: gemelo-postgres
     restart: unless-stopped
-
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gemelo_db}
     ports:
       - "5432:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gemelo_db}"]
+      interval: 5s
       timeout: 5s
       retries: 5
-
 
   minio:
     image: minio/minio:latest
     container_name: gemelo-minio
     restart: unless-stopped
-
     command: server /data --console-address ":9001"
-
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
-
     ports:
       - "9100:9000"
       - "9101:9001"
-
     volumes:
       - minio_data:/data
 
-
 volumes:
   postgres_data:
-
   minio_data:

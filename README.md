@@ -273,13 +273,13 @@ Great Expectations, Delta Lake/Parquet, Ollama y Streamlit.
 ```bash
 cp .env.example .env
 docker compose build
-docker compose -f docker-compose-airflow.yml up --build -d
+docker compose up -d
 docker compose ps
 ```
 
 ## Interfaces
 - Airflow: http://localhost:8080
-- MinIO Console: http://localhost:9001
+- MinIO Console: http://localhost:9101
 - Streamlit: http://localhost:8501
 - Ollama API: http://localhost:11434
-- PostgreSQL: localhost:5432
+- PostgreSQL: http://localhost:5432
