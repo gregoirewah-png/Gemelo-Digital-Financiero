@@ -8,7 +8,7 @@ services:
       - "8080:8080"
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@gemelo-postgres:5432/${POSTGRES_DB:-gemelo_db}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://admin:admin@postgres:5432/gemelo_db      
       - AIRFLOW_USER=admin
       - AIRFLOW_PASSWORD=admin
       - _AIRFLOW_WWW_USER_USERNAME=admin
@@ -27,22 +27,34 @@ services:
         condition: service_started
 
   postgres:
-    image: postgres:16
-    container_name: gemelo-postgres
-    restart: unless-stopped
+    image: postgres:15
+    container_name: gemelo_postgres
+    restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-gemelo_db}
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=gemelo_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gemelo_db}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gemelo_pgadmin
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=santiago@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
 
   minio:
     image: minio/minio:latest
