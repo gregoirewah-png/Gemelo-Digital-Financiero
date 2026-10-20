@@ -12,6 +12,6 @@ RUN apt-get update \
 ENV JAVA_HOME=/usr/lib/jvm/default-java
 
 USER airflow
-
+RUN pip install --no-cache-dir streamlit pandas "great_expectations<1.0.0" psycopg2-binary
 COPY requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt

@@ -43,7 +43,7 @@ with DAG(
     catchup=False,
 ) as dag:
 
-    # 1. Tareas de Ingesta a Bronze
+    # 1. Tareas de Ingesta a Bronze (Pasando el run_id para trazabilidad)
     ingesta_ds1 = BashOperator(
         task_id='ingesta_bronze_dataset1',
         bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset1.csv --dataset Dataset1'
@@ -59,20 +59,20 @@ with DAG(
         bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset3.csv --dataset Dataset3'
     )
 
-    # 2. Tareas de Transformación a Silver (Limpieza y GE)
+    # 2. Tareas de Transformación a Silver (Sin pip install, ya están precargadas en el contenedor)
     transformacion_ds1 = BashOperator(
         task_id='transformacion_silver_dataset1',
-        bash_command='pip install "great_expectations<1.0.0" && python /opt/airflow/src/transformation/bronze_to_silver_dataset1_pyspark.py'
+        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset1_pyspark.py --run_id "{{ run_id }}"'
     )
 
     transformacion_ds2 = BashOperator(
         task_id='transformacion_silver_dataset2',
-        bash_command='pip install "great_expectations<1.0.0" && python /opt/airflow/src/transformation/bronze_to_silver_dataset2_pyspark.py'
+        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset2_pyspark.py --run_id "{{ run_id }}"'
     )
 
     transformacion_ds3 = BashOperator(
         task_id='transformacion_silver_dataset3',
-        bash_command='pip install "great_expectations<1.0.0" && python /opt/airflow/src/transformation/bronze_to_silver_dataset3_pyspark.py'
+        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset3_pyspark.py --run_id "{{ run_id }}"'
     )
 
     # 3. Definición de dependencias

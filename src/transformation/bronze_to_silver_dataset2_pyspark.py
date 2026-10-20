@@ -2,8 +2,11 @@ import json
 import os
 import re
 import time
+import argparse
 from datetime import datetime
+import psycopg2
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType
 from pyspark.sql.functions import col, when, sum as _sum, lit, current_timestamp
 from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 
@@ -14,7 +17,7 @@ def to_snake_case(name):
 
 def get_spark_session():
     spark = SparkSession.builder \
-        .appName("BronzeToSilver_Con_MinIO") \
+        .appName("BronzeToSilver_Dataset2_Con_MinIO") \
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
         .config("spark.hadoop.fs.s3a.endpoint", "http://gemelo-minio:9000") \
         .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
@@ -36,39 +39,71 @@ def get_spark_session():
 
     return spark
 
-def process_credit_cards():
+def process_credit_cards(run_id):
     start_time = time.time()
     spark = get_spark_session()
     
-    # 1. Definir Rutas (Absolutas dinámicas)
+    # 1. Definir Rutas y Esquema Estricto
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     schema_path = os.path.join(BASE_DIR, "schemas", "dataset2_schema.json")
     
     bronze_path = "s3a://bronze/Dataset2/*/*.csv"
     silver_path = "s3a://silver/credit_card_balances"
-    quarantine_path = "s3a://quarantine/Dataset2"
+    quarantine_path = f"s3a://quarantine/Dataset2/run_id={run_id}"
     
-    print("--- Iniciando transformación de credit_card_balances ---")
+    print(f"--- Iniciando transformación de credit_card_balances (Run ID: {run_id}) ---")
     
-    # 2. Leer Bronze 
+    # Cargar esquema definido en JSON (Contrato de Datos)
+    with open(schema_path, "r") as file:
+        schema_json = json.load(file)
+        
+    from pyspark.sql.types import StringType, DoubleType, IntegerType, DateType, StructField
+    
+    type_mapping = {
+        "string": StringType(),
+        "double": DoubleType(),
+        "integer": IntegerType(),
+        "date": DateType()
+    }
+    
+    fields = []
+    for col_name, rules in schema_json.get("columns", {}).items():
+        data_type_str = rules.get("type", "string").lower()
+        spark_type = type_mapping.get(data_type_str, StringType())
+        is_nullable = rules.get("nullable", True)
+        fields.append(StructField(col_name, spark_type, is_nullable))
+        
+    explicit_schema = StructType(fields)
+
+    # 2. Leer Bronze con Esquema Estricto y Modo Permisivo Controlado
     df = spark.read \
         .option("pathGlobFilter", "*.csv") \
-        .csv(bronze_path, header=True, inferSchema=True)
+        .option("mode", "PERMISSIVE") \
+        .option("columnNameOfCorruptRecord", "_corrupt_record") \
+        .schema(explicit_schema) \
+        .csv(bronze_path, header=True)
     
-    # 3. LIMPIEZA BÁSICA
-    for col_name in df.columns:
-        df = df.withColumnRenamed(col_name, to_snake_case(col_name))
-
     total_leidos = df.count()
-    df_clean = df.dropDuplicates()
+
+    # Separar registros estructuralmente corruptos detectados por Spark
+    if "_corrupt_record" in df.columns:
+        df_structural_quarantine = df.filter(col("_corrupt_record").isNotNull()) \
+            .withColumn("quarantine_reason", lit("Falla estructural de esquema o tipo de dato")) \
+            .withColumn("quarantined_at", current_timestamp())
+        df_valid = df.filter(col("_corrupt_record").isNull()).drop("_corrupt_record")
+    else:
+        df_structural_quarantine = None
+        df_valid = df
+
+    # 3. Limpieza de nombres y duplicados
+    for col_name in df_valid.columns:
+        df_valid = df_valid.withColumnRenamed(col_name, to_snake_case(col_name))
+
+    df_clean = df_valid.dropDuplicates()
     total_sin_duplicados = df_clean.count()
     duplicados_eliminados = total_leidos - total_sin_duplicados
 
-    df_clean = df_clean.withColumn("cust_id", col("cust_id").cast("string"))
-    df_clean = df_clean.withColumn("credit_limit", col("credit_limit").cast("double"))
-
     # --- LÓGICA DE CUARENTENA ---
-    # Identificamos errores críticos según arquitectura (ID nulo o Límite <= 0)
     df_evaluated = df_clean.withColumn(
         "quarantine_reason",
         when(col("cust_id").isNull() | (col("cust_id") == ""), lit("ID de cliente nulo o vacío"))
@@ -76,20 +111,26 @@ def process_credit_cards():
         .otherwise(lit(None))
     ).withColumn("quarantined_at", current_timestamp())
 
-    # Bifurcación
-    df_quarantine = df_evaluated.filter(col("quarantine_reason").isNotNull())
-    df_valid = df_evaluated.filter(col("quarantine_reason").isNull())
+    df_business_quarantine = df_evaluated.filter(col("quarantine_reason").isNotNull())
+    df_sanitized = df_evaluated.filter(col("quarantine_reason").isNull())
 
-    total_quarantine = df_quarantine.count()
+    # Consolidar cuarentena total
+    if df_structural_quarantine is not None and df_structural_quarantine.count() > 0:
+        df_final_quarantine = df_structural_quarantine.unionByName(df_business_quarantine, allowMissingColumns=True)
+    else:
+        df_final_quarantine = df_business_quarantine
+
+    total_quarantine = df_final_quarantine.count()
+    
     if total_quarantine > 0:
-        print(f"⚠️ Enviando {total_quarantine} registros corruptos a Cuarentena...")
-        df_quarantine.write.mode("append").parquet(quarantine_path)
+        print(f"⚠️ Enviando {total_quarantine} registros corruptos a Cuarentena (run_id: {run_id})...")
+        df_final_quarantine.write.mode("overwrite").parquet(quarantine_path)
 
-    # Continuamos solo con los datos sanos
-    df_clean = df_valid.drop("quarantine_reason", "quarantined_at")
+    # Continuar solo con registros sanos
+    df_clean = df_sanitized.drop("quarantine_reason", "quarantined_at")
     # -----------------------------
         
-    # Limpieza secundaria (Imputaciones y Clamping para los datos sanos)
+    # Limpieza secundaria (Imputaciones lógicas y Clamping)
     columnas_financieras = [
         "balance", "purchases", "oneoff_purchases", "installments_purchases", 
         "cash_advance", "payments", "minimum_payments"
@@ -116,16 +157,13 @@ def process_credit_cards():
     print("Validando contra reglas de Great Expectations...")
     gx_df = SparkDFDataset(df_clean)
 
-    with open(schema_path, "r") as file:
-        custom_schema = json.load(file)
-
-    for col_name, rules in custom_schema.get("columns", {}).items():
+    for col_name, rules in schema_json.get("columns", {}).items():
         if rules.get("nullable") is False:
             gx_df.expect_column_values_to_not_be_null(col_name)
         if rules.get("unique") is True:
             gx_df.expect_column_values_to_be_unique(col_name)
     
-    frecuencias = [c for c in custom_schema["columns"].keys() if "frequency" in c or c == "prc_full_payment"]
+    frecuencias = [c for c in schema_json["columns"].keys() if "frequency" in c or c == "prc_full_payment"]
     for col_freq in frecuencias:
         gx_df.expect_column_values_to_be_between(col_freq, min_value=0.0, max_value=1.0)
 
@@ -150,6 +188,7 @@ def process_credit_cards():
     ==================================================
     REPORTE DE CALIDAD TRAS INGESTA (BRONZE -> SILVER - DATASET 2)
     ==================================================
+    Run ID: {run_id}
     Fecha de ejecución: {timestamp_actual}
     Duración del proceso: {duracion} segundos
     Registros leídos (Bronze): {total_leidos}
@@ -172,7 +211,7 @@ def process_credit_cards():
 
     print(reporte_txt)
 
-    # Escritura de log 
+    # Escritura de log físico local
     log_dir = os.path.join(BASE_DIR, "logs")
     os.makedirs(log_dir, exist_ok=True) 
     nombre_archivo = f"reporte_dataset2_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
@@ -183,14 +222,50 @@ def process_credit_cards():
         
     print(f"Reporte de calidad guardado físicamente en: {ruta_log}")
 
+    # 5. ESCRITURA EN SILVER Y REGISTRO AUTOMÁTICO EN POSTGRESQL
     if validation_result["success"]:
         print("ÉXITO: El dataset 2 pasó todas las reglas de calidad.")
         df_clean.write.mode("overwrite").parquet(silver_path)
         print(f"Datos guardados exitosamente en: {silver_path}")
     else:
         print("ERROR: El dataset 2 no pasó las validaciones de calidad.")
+
+    # Inserción en la base de datos PostgreSQL para el monitor de Streamlit
+    try:
+        pg_conn = psycopg2.connect(
+            dbname="gemelo_db",
+            user="admin",
+            password="admin",
+            host="postgres",
+            port="5432"
+        )
+        pg_cursor = pg_conn.cursor()
+        
+        insert_query = """
+            INSERT INTO execution_logs 
+            (dataset_name, run_id, duration_seconds, records_read, duplicates_removed, 
+             records_quarantined, records_validated, expectations_evaluated, expectations_failed, log_content)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        pg_cursor.execute(insert_query, (
+            "Dataset 2", run_id, duracion, total_leidos, 
+            duplicados_eliminados, total_quarantine, total_filas, 
+            reglas_evaluadas, reglas_fallidas, reporte_txt
+        ))
+        
+        pg_conn.commit()
+        pg_cursor.close()
+        pg_conn.close()
+        print("Métricas de ejecución y logs guardados exitosamente en PostgreSQL.")
+    except Exception as e:
+        print(f"Advertencia: No se pudo registrar el log en PostgreSQL: {e}")
                 
     spark.stop()
 
 if __name__ == "__main__":
-    process_credit_cards()
+    parser = argparse.ArgumentParser(description="Procesamiento Bronze a Silver Dataset 2 con control de Esquema y Cuarentena")
+    parser.add_argument("--run_id", required=True, help="Identificador único de ejecución (Run ID de Airflow)")
+    args = parser.parse_args()
+    
+    process_credit_cards(args.run_id)

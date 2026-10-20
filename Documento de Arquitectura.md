@@ -190,11 +190,13 @@ MinIO
     └── ml_features
 ```
 
-### Delta Lake / Parquet
+### Parquet
 
-Se evaluará Delta Lake como formato principal para las capas del Data Lake. Delta Lake utiliza Parquet como formato de almacenamiento subyacente y permite incorporar capacidades adicionales de gestión de datos.
+Almacenamiento columnar altamente comprimido que optimiza las lecturas analíticas (solo lee las columnas necesarias) y preserva los esquemas nativamente. Es el estándar de facto para data lakes.
 
-La elección definitiva del formato se documentará como una decisión arquitectónica independiente después de realizar las pruebas correspondientes.
+### Omisión de Delta Lake: 
+
+Su implementación introduce dependencias complejas de control de concurrencia y manifiestos de metadatos (ACID) que exceden el alcance del MVP actual. Prescindir de él garantiza la entrega oportuna del producto funcional priorizando la estabilidad del flujo.
 
 ---
 
@@ -328,6 +330,15 @@ data_quality_results
 
 El Data Lake en MinIO conservará los datos procesados, mientras que PostgreSQL funcionará como una capa relacional para resultados y metadatos seleccionados.
 
+# ¿Por qué PostgreSQL? 
+Aunque es un motor OLTP (transaccional), su rendimiento es más que suficiente para servir datos analíticos pre-agregados en un escenario MVP. Aporta madurez, control de accesos, soporte robusto para SQL estándar y conexión nativa inmediata con herramientas como Streamlit.
+
+# ¿ETL o ELT? 
+El proyecto utiliza ETL. La transformación pesada se realiza en memoria con PySpark (Transform) y el resultado final resumido se carga en PostgreSQL (Load).
+
+# ¿Qué datos publicar? 
+Solo datos de negocio pre-calculados, agregaciones, resúmenes de saldos, conteos y perfiles financieros listos para consumo (Capa Gold). No se deben cargar los históricos granulares de la capa Silver.
+
 ---
 
 ## 12. Orquestación
@@ -356,7 +367,7 @@ Las tareas serán organizadas mediante DAGs para permitir ejecuciones reproducib
 
 ## 13. Logs y métricas operativas
 
-Cada ejecución del pipeline deberá generar información suficiente para determinar su estado y detectar problemas.
+Fundamentales para la trazabilidad, auditoría y resolución de incidentes (troubleshooting). Permiten medir tiempos de ejecución y detectar cuellos de botella.
 
 Métricas mínimas:
 
@@ -447,7 +458,7 @@ Las decisiones técnicas se documentarán mediante Architecture Decision Records
 
 **Decisión:** incorporar Great Expectations para validación de calidad.
 
-**Justificación:** permite convertir reglas de calidad en validaciones reproducibles dentro del pipeline.
+**Justificación:** Garantiza la observabilidad y fiabilidad de los datos. Permite definir contratos de datos estrictos antes de que la información contamine la capa Silver, actuando como una barrera de calidad automatizada.
 
 **Consecuencia:** las reglas de calidad deberán mantenerse junto con el código del proyecto.
 

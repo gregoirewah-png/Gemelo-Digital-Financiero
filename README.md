@@ -282,4 +282,4 @@ docker compose ps
 - MinIO Console: http://localhost:9101
 - Streamlit: http://localhost:8501
 - Ollama API: http://localhost:11434
-- PostgreSQL: http://localhost:5432
+- PostgreSQL: http://localhost:5050
