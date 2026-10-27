@@ -93,26 +93,45 @@ def process_gold_dataset1(run_id):
     
     df_silver = spark.read.parquet(silver_path)
     
-    # Asegurar formato de fecha y extraer mes (ej. YYYY-MM)
-    # Suponiendo que el dataset tiene columnas como: transaction_date, amount, category, description, transaction_type (o se infiere del monto)
-    if "transaction_date" in df_silver.columns:
-        df_silver = df_silver.withColumn("month", F.date_format(F.col("transaction_date"), "yyyy-MM"))
-    else:
-        # Fallback si el campo de fecha tiene otro nombre
-        df_silver = df_silver.withColumn("month", F.lit("2026-10"))
+    # Normalizar todos los nombres de columnas a MAYÚSCULAS para evitar conflictos de nombres
+    for col_name in df_silver.columns:
+        df_silver = df_silver.withColumnRenamed(col_name, col_name.upper())
 
-    # Agrupar por mes, categoría y tipo de transacción (Ingreso / Gasto)
-    # Calculamos sumas para Income y Expense
-    df_agg = df_silver.groupBy("month", "category", "transaction_description").agg(
-        F.sum(F.when(F.col("amount") > 0, F.col("amount")).otherwise(0)).alias("income"),
-        F.sum(F.when(F.col("amount") < 0, F.abs(F.col("amount"))).otherwise(0)).alias("expense")
+    # Ahora las columnas se llamarán: 'DATE', 'TRANSACTION_DESCRIPTION', 'CATEGORY', 'AMOUNT', 'TYPE'
+    logger.info(f"Columnas disponibles normalizadas: {df_silver.columns}")
+    
+    # 1. Limpieza y estandarización con nombres en mayúsculas
+    df_clean = df_silver.withColumn(
+        "DATE", F.to_date(F.col("DATE"), "yyyy-MM-dd")
+    ).withColumn(
+        "TRANSACTION_DESCRIPTION", F.upper(F.trim(F.col("TRANSACTION_DESCRIPTION")))
+    ).withColumn(
+        "CATEGORY", F.upper(F.trim(F.col("CATEGORY")))
+    ).withColumn(
+        "TYPE", F.upper(F.trim(F.col("TYPE")))
+    ).withColumn(
+        "AMOUNT", F.col("AMOUNT").cast("double")
     )
     
-    # Balance mensual por categoría y descripción
-    df_gold = df_agg.withColumn("net_balance", F.col("income") - F.col("expense"))
+    # 2. Filtrar nulos críticos y extraer el mes (YYYY-MM)
+    df_filtered = df_clean.filter(
+        (F.col("DATE").isNotNull()) & 
+        (F.col("AMOUNT").isNotNull()) & 
+        (F.col("TYPE").isNotNull())
+    ).withColumn(
+        "month", F.date_format(F.col("DATE"), "yyyy-MM")
+    )
     
-    # Agregación a nivel mensual general para calcular el ratio Income to Expense y Salud Financiera
-    df_monthly = df_gold.groupBy("month").agg(
+    # 3. Agrupación detallada por mes, categoría, descripción y tipo
+    df_agg = df_filtered.groupBy("month", "CATEGORY", "TRANSACTION_DESCRIPTION", "TYPE").agg(
+        F.sum(F.when((F.col("TYPE").isin(["INCOME", "DEPOSIT"])) | (F.col("AMOUNT") > 0), F.col("AMOUNT")).otherwise(0)).alias("income"),
+        F.sum(F.when((F.col("TYPE").isin(["EXPENSE", "WITHDRAWAL"])) | (F.col("AMOUNT") < 0), F.abs(F.col("AMOUNT"))).otherwise(0)).alias("expense")
+    )
+    
+    df_gold_detail = df_agg.withColumn("net_balance", F.col("income") - F.col("expense"))
+    
+    # 4. Agregación a nivel mensual global para calcular salud financiera y ratio
+    df_monthly = df_gold_detail.groupBy("month").agg(
         F.sum("income").alias("total_income"),
         F.sum("expense").alias("total_expense")
     )
@@ -122,11 +141,7 @@ def process_gold_dataset1(run_id):
         F.when(F.col("total_expense") > 0, F.col("total_income") / F.col("total_expense")).otherwise(F.lit(999.0))
     )
     
-    # Definir reglas para la calificación de Salud Financiera
-    # Excelente: ratio >= 1.5 (ahorro superior al 33%)
-    # Buena: ratio entre 1.1 y 1.49 (ahorro positivo)
-    # Regular: ratio entre 1.0 y 1.09 (tablas, sin margen)
-    # En Riesgo: ratio < 1.0 (gastos superan ingresos)
+    # 5. Reglas de negocio para la Calificación de Salud Financiera
     df_monthly = df_monthly.withColumn(
         "financial_health_score",
         F.when(F.col("income_to_expense_ratio") >= 1.5, F.lit("Excelente"))
@@ -135,7 +150,7 @@ def process_gold_dataset1(run_id):
          .otherwise(F.lit("En Riesgo"))
     )
     
-    logger.info("Esccribiendo resultados calculados en la capa Gold de MinIO...")
+    logger.info("Escribiendo resultados calculados en la capa Gold de MinIO...")
     df_monthly.write.mode("overwrite").parquet(gold_path)
     
     records_count = df_monthly.count()
@@ -173,6 +188,6 @@ if __name__ == "__main__":
             print(f" Motivo del error: {error_detalle}")
         else:
             print(f" Registros Gold  : {total_records}")
-        print(f" Destino MinIO   : s3a://gold/Dataset1/")
+        print(f" Destino MinIO   : s3a://gold/personal_transactions/run_id={args.run_id}")
         print(f" Timestamp fin   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("="*60 + "\n")

@@ -4,13 +4,15 @@ import logging
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.ml.feature import VectorAssembler, StandardScaler
+from pyspark.ml.clustering import KMeans
 import traceback
 import psycopg2
 
 # 1. Configurar directorio y archivo de logs local
 log_dir = "/opt/airflow/logs/custom_pipeline_logs"
 os.makedirs(log_dir, exist_ok=True)
-log_file_path = os.path.join(log_dir, "silver_to_gold_dataset2.log")
+log_file_path = os.path.join(log_dir, "silver_to_gold_credit_card.log")
 
 logging.basicConfig(
     filename=log_file_path,
@@ -18,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
-logger = logging.getLogger("GoldDataset2Pipeline")
+logger = logging.getLogger("GoldCreditCardPipeline")
 
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
@@ -27,7 +29,7 @@ logger.addHandler(console_handler)
 
 def get_spark_session():
     spark = SparkSession.builder \
-        .appName("SilverToGold_Dataset2_Con_MinIO") \
+        .appName("SilverToGold_CreditCard_Con_MinIO") \
         .config("spark.jars.packages", "org.postgresql:postgresql:42.6.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
         .config("spark.hadoop.fs.s3a.endpoint", "http://gemelo-minio:9000") \
         .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
@@ -48,7 +50,7 @@ def get_spark_session():
         .getOrCreate()
     return spark
 
-def log_execution_to_postgres(run_id, status="SUCCESS", dataset="Dataset 2 Gold", records_count=0):
+def log_execution_to_postgres(run_id, status="SUCCESS", dataset="Credit Card Gold Segmentation", records_count=0):
     try:
         connection = psycopg2.connect(
             host="postgres",
@@ -81,47 +83,70 @@ def log_execution_to_postgres(run_id, status="SUCCESS", dataset="Dataset 2 Gold"
     except Exception as e:
         logger.error(f"Error al guardar el log en Postgres: {e}")
 
-def process_gold_dataset2(run_id):
+def process_gold_credit_card(run_id):
     spark = get_spark_session()
     
     silver_path = "s3a://silver/credit_card_balances/"
-    gold_path = f"s3a://gold/credit_card_balances/run_id={run_id}"
+    gold_path = f"s3a://gold/credit_card_segmentation/run_id={run_id}"
     
-    logger.info(f"--- Iniciando construcción de Capa Gold - Dataset 2 (Run ID: {run_id}) ---")
+    logger.info(f"--- Iniciando construcción de Capa Gold - Credit Card Segmentation (Run ID: {run_id}) ---")
     logger.info(f"Leyendo datos Silver desde: {silver_path}")
     
     df_silver = spark.read.parquet(silver_path)
     
-    # Descartar la columna cust_id si existe en el DataFrame
-    columns_to_drop = [col for col in ["cust_id", "customer_id"] if col in df_silver.columns]
+    # 💡 Solución: Convertir los nombres de todas las columnas a MAYÚSCULAS para evitar conflictos
+    for col_name in df_silver.columns:
+        df_silver = df_silver.withColumnRenamed(col_name, col_name.upper())
+
+    # Excluir identificadores únicos si están presentes
+    columns_to_drop = [col for col in ["CUST_ID", "CUSTOMER_ID"] if col in df_silver.columns]
     if columns_to_drop:
-        logger.info(f"Descartando columnas de identificación de cliente: {columns_to_drop}")
+        logger.info(f"Descartando columnas de identificación: {columns_to_drop}")
         df_silver = df_silver.drop(*columns_to_drop)
     
-    # Procesamiento y agregaciones óptimas para la capa Gold
-    # Agrupamos por dimensiones disponibles (ej. categoría, tipo de cuenta o estado) y calculamos métricas agregadas de comportamiento
-    group_cols = [col for col in ["category", "transaction_type", "status"] if col in df_silver.columns]
+    # Variables numéricas reales del dataset (en mayúsculas)
+    feature_cols = [
+        'BALANCE', 'BALANCE_FREQUENCY', 'PURCHASES', 'ONEOFF_PURCHASES', 
+        'INSTALLMENTS_PURCHASES', 'CASH_ADVANCE', 'PURCHASES_FREQUENCY', 
+        'ONEOFF_PURCHASES_FREQUENCY', 'PURCHASES_INSTALLMENTS_FREQUENCY', 
+        'CASH_ADVANCE_FREQUENCY', 'CASH_ADVANCE_TRX', 'PURCHASES_TRX', 
+        'CREDIT_LIMIT', 'PAYMENTS', 'MINIMUM_PAYMENTS', 'PRC_FULL_PAYMENT', 'TENURE'
+    ]
     
-    if group_cols:
-        df_gold = df_silver.groupBy(*group_cols).agg(
-            F.count("*").alias("total_transactions"),
-            F.sum(F.col("amount")).alias("total_amount"),
-            F.avg(F.col("amount")).alias("avg_amount"),
-            F.max(F.col("amount")).alias("max_amount"),
-            F.min(F.col("amount")).alias("min_amount")
-        )
-    else:
-        # Fallback general si las columnas varían
-        df_gold = df_silver.groupBy().agg(
-            F.count("*").alias("total_transactions"),
-            F.sum(F.col("amount")).alias("total_amount") if "amount" in df_silver.columns else F.lit(0).alias("total_amount")
-        )
+    # Asegurar que solo se usen las columnas que existan y convertirlas a tipo Double
+    valid_features = [col for col in feature_cols if col in df_silver.columns]
+    logger.info(f"Columnas válidas detectadas para el modelo: {valid_features}")
+    
+    for col_name in valid_features:
+        df_silver = df_silver.withColumn(col_name, F.col(col_name).cast("double"))
+    
+    # Manejo de valores nulos
+    logger.info("Rellenando valores nulos en el DataFrame...")
+    df_clean = df_silver.na.fill(0, subset=valid_features)
+    
+    # 1. Ensamblar características en un vector para MLlib
+    assembler = VectorAssembler(inputCols=valid_features, outputCol="features_unscaled")
+    df_assembled = assembler.transform(df_clean)
+    
+    # 2. Escalar características (StandardScaler)
+    scaler = StandardScaler(inputCol="features_unscaled", outputCol="features", withMean=True, withStd=True)
+    scaler_model = scaler.fit(df_assembled)
+    df_scaled = scaler_model.transform(df_assembled)
+    
+    # 3. Aplicar modelo K-Means para segmentación de clientes
+    logger.info("Entrenando modelo K-Means (4 clusters)...")
+    kmeans = KMeans(featuresCol="features", predictionCol="cluster", k=4, seed=42)
+    kmeans_model = kmeans.fit(df_scaled)
+    df_gold = kmeans_model.transform(df_scaled)
+    
+    output_cols = valid_features + ["cluster"]
+    df_gold_final = df_gold.select(*output_cols)
     
     logger.info("Escribiendo resultados calculados en la capa Gold de MinIO...")
-    df_gold.write.mode("overwrite").parquet(gold_path)
+    df_gold_final.write.mode("overwrite").parquet(gold_path)
     
-    records_count = df_gold.count()
-    log_execution_to_postgres(run_id, status="SUCCESS", dataset="Dataset 2 Gold", records_count=records_count)
+    records_count = df_gold_final.count()
+    log_execution_to_postgres(run_id, status="SUCCESS", dataset="Credit Card Gold Segmentation", records_count=records_count)
     
     spark.stop()
     return records_count
@@ -136,18 +161,18 @@ if __name__ == "__main__":
     total_records = 0
     
     try:
-        total_records = process_gold_dataset2(args.run_id)
-        logger.info("Proceso de Capa Gold Dataset 2 completado exitosamente.")
+        total_records = process_gold_credit_card(args.run_id)
+        logger.info("Proceso de Capa Gold Credit Card completado exitosamente.")
     except Exception as e:
         execution_status = "FALLIDO (FAILED)"
         error_detalle = str(e)
-        logger.error(f"Error crítico en Capa Gold Dataset 2: {error_detalle}")
+        logger.error(f"Error crítico en Capa Gold Credit Card: {error_detalle}")
         logger.error(traceback.format_exc())
-        log_execution_to_postgres(args.run_id, status="FAILED", dataset="Dataset 2 Gold", records_count=0)
+        log_execution_to_postgres(args.run_id, status="FAILED", dataset="Credit Card Gold Segmentation", records_count=0)
         raise e
     finally:
         print("\n" + "="*60)
-        print("       REPORTE DE EJECUCIÓN - CAPA GOLD (DATASET 2)")
+        print("    REPORTE DE EJECUCIÓN - CAPA GOLD (CREDIT CARD SEGMENTATION)")
         print("="*60)
         print(f" Run ID          : {args.run_id}")
         print(f" Estado          : {execution_status}")
@@ -155,6 +180,6 @@ if __name__ == "__main__":
             print(f" Motivo del error: {error_detalle}")
         else:
             print(f" Registros Gold  : {total_records}")
-        print(f" Destino MinIO   : s3a://gold/Dataset2/")
+        print(f" Destino MinIO   : s3a://gold/credit_card_balances/")
         print(f" Timestamp fin   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("="*60 + "\n")
