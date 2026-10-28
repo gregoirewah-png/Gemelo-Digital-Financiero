@@ -1,12 +1,15 @@
 import argparse
-from datetime import datetime
-import logging
+import sys
 import os
+import time 
+import argparse
+import logging
+import traceback
+from datetime import datetime
+import psycopg2
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.window import Window
-import traceback
-import psycopg2
+from pyspark.sql.functions import col, sum as _sum, avg, count, max as _max, min as _min, lit, current_timestamp
 
 # 1. Configurar directorio y archivo de logs local
 log_dir = "/opt/airflow/logs/custom_pipeline_logs"
@@ -36,17 +39,16 @@ def get_spark_session():
         .config("spark.hadoop.fs.s3a.path.style.access", "true") \
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
         .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider") \
-        .config("spark.hadoop.fs.s3a.threads.keepalivetime", "60") \
-        .config("spark.hadoop.fs.s3a.connection.establish.timeout", "30000") \
-        .config("spark.hadoop.fs.s3a.connection.timeout", "60000") \
-        .config("spark.hadoop.fs.s3a.attempts.maximum", "3") \
-        .config("spark.hadoop.fs.s3a.multipart.purge.age", "24") \
-        .config("spark.hadoop.fs.s3a.connection.maximum", "100") \
-        .config("spark.sql.parquet.writeLegacyFormat", "true") \
-        .config("spark.sql.ansi.enabled", "false") \
-        .config("spark.sql.shuffle.partitions", "2") \
-        .config("spark.driver.memory", "1g") \
+        .config("spark.hadoop.fs.s3a.fast.upload", "false") \
+        .config("spark.sql.shuffle.partitions", "1") \
+        .config("spark.default.parallelism", "1") \
+        .config("spark.driver.memory", "2g") \
         .getOrCreate()
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+    hadoop_conf.set("fs.s3a.connection.timeout", "600000")
+    hadoop_conf.set("fs.s3a.connection.establish.timeout", "60000")  
+    hadoop_conf.set("fs.s3a.threads.keepalivetime", "60000")
+    hadoop_conf.set("fs.s3a.multipart.purge.age", "86400000")
     return spark
 
 def log_execution_to_postgres(run_id, status="SUCCESS", dataset="Dataset 1 Gold", records_count=0):
@@ -83,15 +85,21 @@ def log_execution_to_postgres(run_id, status="SUCCESS", dataset="Dataset 1 Gold"
         logger.error(f"Error al guardar el log en Postgres: {e}")
 
 def process_gold_dataset1(run_id):
+    start_time = time.time()
     spark = get_spark_session()
     
-    silver_path = "s3a://silver/personal_transactions/"
+    silver_path = "s3a://silver/personal_transactions"
     gold_path = f"s3a://gold/personal_transactions/run_id={run_id}"
     
     logger.info(f"--- Iniciando construcción de Capa Gold - Dataset 1 (Run ID: {run_id}) ---")
     logger.info(f"Leyendo datos Silver desde: {silver_path}")
     
-    df_silver = spark.read.parquet(silver_path)
+    try:
+        # Lectura robusta con validación de esquema explícito si es necesario
+        df_silver = spark.read.parquet(silver_path)
+    except Exception as e:
+        logger.error(f"No se pudo leer la capa Silver en {silver_path}. Asegúrate de que la tarea Silver haya concluido exitosamente. Detalle: {e}")
+        raise e
     
     # Normalizar todos los nombres de columnas a MAYÚSCULAS para evitar conflictos de nombres
     for col_name in df_silver.columns:

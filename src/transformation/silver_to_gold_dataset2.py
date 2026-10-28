@@ -29,7 +29,7 @@ logger.addHandler(console_handler)
 
 def get_spark_session():
     spark = SparkSession.builder \
-        .appName("SilverToGold_CreditCard_Con_MinIO") \
+        .appName("SilverToGold_Dataset2_CreditCard") \
         .config("spark.jars.packages", "org.postgresql:postgresql:42.6.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262") \
         .config("spark.hadoop.fs.s3a.endpoint", "http://gemelo-minio:9000") \
         .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
@@ -37,17 +37,20 @@ def get_spark_session():
         .config("spark.hadoop.fs.s3a.path.style.access", "true") \
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
         .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider") \
-        .config("spark.hadoop.fs.s3a.threads.keepalivetime", "60") \
-        .config("spark.hadoop.fs.s3a.connection.establish.timeout", "30000") \
-        .config("spark.hadoop.fs.s3a.connection.timeout", "60000") \
-        .config("spark.hadoop.fs.s3a.attempts.maximum", "3") \
-        .config("spark.hadoop.fs.s3a.multipart.purge.age", "24") \
-        .config("spark.hadoop.fs.s3a.connection.maximum", "100") \
-        .config("spark.sql.parquet.writeLegacyFormat", "true") \
-        .config("spark.sql.ansi.enabled", "false") \
-        .config("spark.sql.shuffle.partitions", "2") \
-        .config("spark.driver.memory", "1g") \
+        .config("spark.hadoop.fs.s3a.fast.upload", "false") \
+        .config("spark.sql.shuffle.partitions", "1") \
+        .config("spark.default.parallelism", "1") \
+        .config("spark.driver.memory", "2g") \
+        .config("spark.driver.maxResultSize", "1g") \
+        .config("spark.memory.fraction", "0.6") \
         .getOrCreate()
+
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+    hadoop_conf.set("fs.s3a.connection.timeout", "600000")
+    hadoop_conf.set("fs.s3a.connection.establish.timeout", "60000")
+    hadoop_conf.set("fs.s3a.threads.keepalivetime", "60000")
+    hadoop_conf.set("fs.s3a.multipart.purge.age", "86400000")
+
     return spark
 
 def log_execution_to_postgres(run_id, status="SUCCESS", dataset="Credit Card Gold Segmentation", records_count=0):
@@ -87,14 +90,14 @@ def process_gold_credit_card(run_id):
     spark = get_spark_session()
     
     silver_path = "s3a://silver/credit_card_balances/"
-    gold_path = f"s3a://gold/credit_card_segmentation/run_id={run_id}"
+    gold_path = f"s3a://gold/credit_card_balances/run_id={run_id}"
     
     logger.info(f"--- Iniciando construcción de Capa Gold - Credit Card Segmentation (Run ID: {run_id}) ---")
     logger.info(f"Leyendo datos Silver desde: {silver_path}")
     
     df_silver = spark.read.parquet(silver_path)
     
-    # 💡 Solución: Convertir los nombres de todas las columnas a MAYÚSCULAS para evitar conflictos
+    # Solución: Convertir los nombres de todas las columnas a MAYÚSCULAS para evitar conflictos
     for col_name in df_silver.columns:
         df_silver = df_silver.withColumnRenamed(col_name, col_name.upper())
 
@@ -131,9 +134,10 @@ def process_gold_credit_card(run_id):
     # 2. Escalar características (StandardScaler)
     scaler = StandardScaler(inputCol="features_unscaled", outputCol="features", withMean=True, withStd=True)
     scaler_model = scaler.fit(df_assembled)
-    df_scaled = scaler_model.transform(df_assembled)
-    
-    # 3. Aplicar modelo K-Means para segmentación de clientes
+    df_scaled = scaler_model.transform(df_assembled).cache()  # <--- Mantener en caché
+    _ = df_scaled.count()                                     # <--- Forzar materialización en RAM
+
+    # 3. Aplicar modelo K-Means para segmentación de clientes de forma segura
     logger.info("Entrenando modelo K-Means (4 clusters)...")
     kmeans = KMeans(featuresCol="features", predictionCol="cluster", k=4, seed=42)
     kmeans_model = kmeans.fit(df_scaled)
@@ -143,7 +147,7 @@ def process_gold_credit_card(run_id):
     df_gold_final = df_gold.select(*output_cols)
     
     logger.info("Escribiendo resultados calculados en la capa Gold de MinIO...")
-    df_gold_final.write.mode("overwrite").parquet(gold_path)
+    df_gold_final.coalesce(1).write.mode("overwrite").parquet(gold_path)
     
     records_count = df_gold_final.count()
     log_execution_to_postgres(run_id, status="SUCCESS", dataset="Credit Card Gold Segmentation", records_count=records_count)
