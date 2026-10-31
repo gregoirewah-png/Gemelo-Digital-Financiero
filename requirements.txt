@@ -9,3 +9,4 @@ apache-airflow-providers-postgres
 scikit-learn
 streamlit
 requests
+groq

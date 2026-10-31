@@ -5,9 +5,20 @@ import time
 import argparse
 from datetime import datetime
 import psycopg2
+from pyspark.storagelevel import StorageLevel
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType
-from pyspark.sql.functions import col, when, sum as _sum, lit, current_timestamp
+from pyspark.sql.types import (StringType,
+    DoubleType,
+    IntegerType,
+    DateType,
+    StructField,
+    StructType)
+
+from pyspark.sql.functions import (
+    col, when, lit, current_timestamp,
+    trim, upper, initcap, concat_ws, length,
+    sum as _sum
+)
 
 def to_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name.replace(" ", "_"))
@@ -42,7 +53,7 @@ def process_transactions(run_id):
     start_time = time.time()
     spark = get_spark_session()
     
-    # 💡 Sanear el run_id para evitar errores de URI en Hadoop S3A
+    # Sanear el run_id para evitar errores de URI en Hadoop S3A
     safe_run_id = run_id.replace("+", "_").replace(":", "_").replace(" ", "_")
     
     # 1. Definir Rutas y Esquema Estricto
@@ -73,12 +84,25 @@ def process_transactions(run_id):
     
     fields = []
     for col_name, rules in schema_json.get("columns", {}).items():
+
+        # No duplicar la columna reservada de Spark
+        if col_name.lower() == "_corrupt_record":
+            continue
+
         data_type_str = rules.get("type", "string").lower()
         spark_type = type_mapping.get(data_type_str, StringType())
         is_nullable = rules.get("nullable", True)
-        fields.append(StructField(col_name, spark_type, is_nullable))
-        
-    explicit_schema = StructType(fields) if fields else None
+
+        fields.append(
+            StructField(col_name, spark_type, is_nullable)
+        )
+
+    # Agregarla exactamente una vez
+    fields.append(
+        StructField("_corrupt_record", StringType(), True)
+    )
+
+    explicit_schema = StructType(fields)
 
     # 2. Leer Bronze con Esquema Estricto y Modo Permisivo Controlado
     reader = spark.read \
@@ -87,9 +111,24 @@ def process_transactions(run_id):
         .option("columnNameOfCorruptRecord", "_corrupt_record")
         
     if explicit_schema:
-        df = reader.schema(explicit_schema).csv(bronze_path, header=True)
+        df = reader.schema(explicit_schema).csv(
+            bronze_path,
+            header=True
+        )
     else:
-        df = reader.csv(bronze_path, header=True)
+        df = reader.csv(
+            bronze_path,
+            header=True
+        )
+
+    # Materializar los datos antes de consultar _corrupt_record
+    df = df.persist(StorageLevel.MEMORY_AND_DISK)
+
+    # Esta acción carga el DataFrame en caché
+    total_leidos = df.count()
+
+    print(f"Registros leídos desde Bronze: {total_leidos}")
+    print(f"Columnas detectadas: {df.columns}")
     
     total_leidos = df.count()
 
@@ -103,45 +142,196 @@ def process_transactions(run_id):
         df_structural_quarantine = None
         df_valid = df
 
-    # 3. Limpieza de nombres y duplicados
+    # 3. Estandarización de nombres
     for col_name in df_valid.columns:
         if col_name != "_corrupt_record":
-            df_valid = df_valid.withColumnRenamed(col_name, to_snake_case(col_name))
+            df_valid = df_valid.withColumnRenamed(
+                col_name,
+                to_snake_case(col_name)
+            )
 
-    df_clean = df_valid.dropDuplicates()
+    # Conservar el total de registros procesables antes de deduplicar
+    registros_antes_dedup = df_valid.count()
+
+    # Normalización de valores
+    df_clean = (
+        df_valid
+        .withColumn(
+            "transaction_description",
+            trim(col("transaction_description"))
+        )
+        .withColumn(
+            "category",
+            initcap(trim(col("category")))
+        )
+        .withColumn(
+            "type",
+            when(
+                upper(trim(col("type"))) == "INCOME",
+                lit("Income")
+            )
+            .when(
+                upper(trim(col("type"))) == "EXPENSE",
+                lit("Expense")
+            )
+            .otherwise(trim(col("type")))
+        )
+    )
+
+    # Si la normalización hace que dos registros sean idénticos,
+    # también deben considerarse duplicados.
+    df_clean = df_clean.dropDuplicates()
+
     total_sin_duplicados = df_clean.count()
-    duplicados_eliminados = total_leidos - total_sin_duplicados
+
+    duplicados_eliminados = (
+        registros_antes_dedup - total_sin_duplicados
+    )
 
     # --- LÓGICA DE CUARENTENA ---
-    df_evaluated = df_clean.withColumn(
-        "quarantine_reason",
-        lit(None)
-    ).withColumn("quarantined_at", current_timestamp())
+    # 1. Definir reglas de calidad
+    reglas = {
+        "fecha_invalida": (
+            col("date").isNull()
+        ),
 
-    df_business_quarantine = df_evaluated.filter(col("quarantine_reason").isNotNull())
-    df_sanitized = df_evaluated.filter(col("quarantine_reason").isNull())
+        "descripcion_vacia": (
+            col("transaction_description").isNull() |
+            (trim(col("transaction_description")) == "")
+        ),
 
-    # Consolidar cuarentena total
-    if df_structural_quarantine is not None and df_structural_quarantine.count() > 0:
-        df_final_quarantine = df_structural_quarantine.unionByName(df_business_quarantine, allowMissingColumns=True)
+        "categoria_no_permitida": (
+            col("category").isNull() |
+            (~col("category").isin(
+                "Rent",
+                "Travel",
+                "Utilities",
+                "Health & Fitness",
+                "Shopping",
+                "Food & Drink",
+                "Entertainment",
+                "Salary",
+                "Investment",
+                "Other"
+            ))
+        ),
+
+        "importe_invalido": (
+            col("amount").isNull()
+        ),
+
+        "tipo_no_permitido": (
+            col("type").isNull() |
+            (~col("type").isin("Income", "Expense"))
+        )
+    }
+
+    # 2. Crear una descripción de los errores encontrados
+    razones = [
+        when(condicion, lit(nombre))
+        for nombre, condicion in reglas.items()
+    ]
+
+    df_evaluated = (
+        df_clean
+        .withColumn(
+            "_reason_parts",
+            concat_ws(" | ", *razones)
+        )
+        .withColumn(
+            "quarantine_reason",
+            when(
+                length(col("_reason_parts")) > 0,
+                col("_reason_parts")
+            ).otherwise(lit(None).cast("string"))
+        )
+        .withColumn(
+            "quarantined_at",
+            when(
+                col("quarantine_reason").isNotNull(),
+                current_timestamp()
+            )
+        )
+        .drop("_reason_parts")
+    )
+
+    # 3. Separar registros rechazados y registros válidos
+    df_business_quarantine = df_evaluated.filter(
+        col("quarantine_reason").isNotNull()
+    )
+
+    df_sanitized = df_evaluated.filter(
+        col("quarantine_reason").isNull()
+    )
+
+    # 4. Consolidar cuarentena estructural y de negocio
+
+    if df_structural_quarantine is not None:
+
+        # Estandarizar los nombres de columnas de la cuarentena estructural
+        for col_name in df_structural_quarantine.columns:
+            if col_name != "_corrupt_record":
+                df_structural_quarantine = (
+                    df_structural_quarantine.withColumnRenamed(
+                        col_name,
+                        to_snake_case(col_name)
+                    )
+                )
+
+        df_final_quarantine = df_structural_quarantine.unionByName(
+            df_business_quarantine,
+            allowMissingColumns=True
+        )
+
     else:
         df_final_quarantine = df_business_quarantine
 
+    # Contabilizar registros en cuarentena
     total_quarantine = df_final_quarantine.count()
-    
-    if total_quarantine > 0:
-        print(f"⚠️ Enviando {total_quarantine} registros corruptos a Cuarentena (run_id: {run_id})...")
-        df_final_quarantine.write.mode("overwrite").parquet(quarantine_path)
 
-    # Continuar solo con registros sanos
-    df_clean = df_sanitized.drop("quarantine_reason", "quarantined_at")
+    # Persistir registros rechazados en MinIO
+    if total_quarantine > 0:
+        print(
+            f"Enviando {total_quarantine} registros a cuarentena..."
+        )
+
+        df_final_quarantine.write \
+            .mode("overwrite") \
+            .parquet(quarantine_path)
+
+        print(f"Cuarentena guardada en: {quarantine_path}")
+    else:
+        print("No se encontraron registros para cuarentena.")
 
     # MÉTRICAS Y VALIDACIÓN NATIVA SEGURA
-    total_filas = df_clean.count()
+    total_filas = df_sanitized.count()
     print(f"\n[MÉTRICAS] Total de registros listos para Silver: {total_filas}")
 
-    reglas_evaluadas = len(schema_json.get("columns", {})) * 2 if schema_json.get("columns") else 10
-    reglas_fallidas = 0
+    # Evaluar cuántos registros incumplen cada regla
+    resultados_reglas = df_clean.agg(
+        *[
+            _sum(
+                when(condicion, 1).otherwise(0)
+            ).alias(nombre)
+            for nombre, condicion in reglas.items()
+        ]
+    ).first().asDict()
+
+    # Número real de reglas ejecutadas
+    reglas_evaluadas = len(reglas)
+
+    # Número de reglas que tuvieron al menos un incumplimiento
+    reglas_fallidas = sum(
+        1
+        for cantidad in resultados_reglas.values()
+        if (cantidad or 0) > 0
+    )
+
+    # Detalle de incumplimientos
+    detalle_reglas = "\n".join(
+        f"{nombre}: {cantidad or 0} registros afectados"
+        for nombre, cantidad in resultados_reglas.items()
+    )
 
     end_time = time.time()
     duracion = round(end_time - start_time, 2)
@@ -160,7 +350,10 @@ def process_transactions(run_id):
     Registros validados listos para Silver: {total_filas}
     Reglas de calidad evaluadas: {reglas_evaluadas}
     Reglas fallidas: {reglas_fallidas}
-    ==================================================
+
+    Detalle de incumplimientos:
+    {detalle_reglas}
+        ==================================================
     """
 
     print(reporte_txt)
@@ -177,10 +370,17 @@ def process_transactions(run_id):
     print(f"Reporte de calidad guardado físicamente en: {ruta_log}")
 
     # 5. ESCRITURA EN SILVER Y REGISTRO AUTOMÁTICO EN POSTGRESQL
-    print("ÉXITO: El dataset pasó las validaciones y transformaciones de calidad.")
-    
+    print(
+        f"Proceso finalizado. "
+        f"Válidos: {total_filas}, "
+        f"En cuarentena: {total_quarantine}, "
+        f"Reglas fallidas: {reglas_fallidas}"
+    )    
     # Escritura controlada con coalesce para evitar desbordamiento en JVM
-    df_clean.coalesce(2).write.mode("overwrite").parquet(silver_path)
+    df_sanitized.drop(
+    "quarantine_reason",
+    "quarantined_at"
+    ).coalesce(2).write.mode("overwrite").parquet(silver_path)
     
     print(f"Datos guardados exitosamente en: {silver_path}")
 
@@ -214,7 +414,8 @@ def process_transactions(run_id):
         print("Métricas de ejecución y logs guardados exitosamente en PostgreSQL.")
     except Exception as e:
         print(f"Advertencia: No se pudo registrar el log en PostgreSQL: {e}")
-                
+
+    df.unpersist()            
     spark.stop()
 
 if __name__ == "__main__":

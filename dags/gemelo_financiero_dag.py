@@ -51,15 +51,15 @@ with DAG(
         bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset1.csv --dataset Dataset1'
     )
 
-    ingesta_ds2 = BashOperator(
-        task_id='ingesta_bronze_dataset2',
-        bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset2.csv --dataset Dataset2'
-    )
+#    ingesta_ds2 = BashOperator(
+#        task_id='ingesta_bronze_dataset2',
+#        bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset2.csv --dataset Dataset2'
+#    )
 
-    ingesta_ds3 = BashOperator(
-        task_id='ingesta_bronze_dataset3',
-        bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset3.csv --dataset Dataset3'
-    )
+#    ingesta_ds3 = BashOperator(
+#        task_id='ingesta_bronze_dataset3',
+#        bash_command='python /opt/airflow/src/ingestion/ingest_dataset_pyspark.py --input /opt/airflow/data/raw/Dataset3.csv --dataset Dataset3'
+#    )
 
     # ==========================================
     # 2. CAPA SILVER (Limpieza y estandarización)
@@ -69,15 +69,15 @@ with DAG(
         bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset1_pyspark.py --run_id "{{ run_id }}"'
     )
 
-    transformacion_silver_ds2 = BashOperator(
-        task_id='transformacion_silver_dataset2',
-        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset2_pyspark.py --run_id "{{ run_id }}"'
-    )
+#    transformacion_silver_ds2 = BashOperator(
+#        task_id='transformacion_silver_dataset2',
+#        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset2_pyspark.py --run_id "{{ run_id }}"'
+#    )
 
-    transformacion_silver_ds3 = BashOperator(
-        task_id='transformacion_silver_dataset3',
-        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset3_pyspark.py --run_id "{{ run_id }}"'
-    )
+#    transformacion_silver_ds3 = BashOperator(
+#        task_id='transformacion_silver_dataset3',
+#        bash_command='python /opt/airflow/src/transformation/bronze_to_silver_dataset3_pyspark.py --run_id "{{ run_id }}"'
+#    )
 
     # ==========================================
     # 3. CAPA GOLD (Modelado analítico y ML)
@@ -87,15 +87,15 @@ with DAG(
         bash_command='python /opt/airflow/src/transformation/silver_to_gold_dataset1.py --run_id "{{ run_id }}"',
     )
 
-    run_gold_dataset2 = BashOperator(
-        task_id='run_silver_to_gold_dataset2',
-        bash_command='python /opt/airflow/src/transformation/silver_to_gold_dataset2.py --run_id "{{ run_id }}"',
-    )
+#    run_gold_dataset2 = BashOperator(
+#        task_id='run_silver_to_gold_dataset2',
+#        bash_command='python /opt/airflow/src/transformation/silver_to_gold_dataset2.py --run_id "{{ run_id }}"',
+#    )
 
-    run_gold_dataset3 = BashOperator(
-        task_id='run_silver_to_gold_dataset3',
-        bash_command='python /opt/airflow/src/transformation/silver_to_gold_dataset3.py --run_id "{{ run_id }}"',
-    )
+    #run_gold_dataset3 = BashOperator(
+     #   task_id='run_silver_to_gold_dataset3',
+      #  bash_command='python /opt/airflow/src/transformation/silver_to_gold_dataset3.py --run_id "{{ run_id }}"',
+   # )
 
     # ==========================================
     # 4. DEFINICIÓN DE DEPENDENCIAS (FLUJO)
@@ -104,7 +104,7 @@ with DAG(
     ingesta_ds1 >> transformacion_silver_ds1 >> run_gold_dataset1
 
     # Dataset 2: Bronze -> Silver -> Gold
-    ingesta_ds2 >> transformacion_silver_ds2 >> run_gold_dataset2
+    #ingesta_ds2 >> transformacion_silver_ds2 >> run_gold_dataset2
 
     # Dataset 3: Bronze -> Silver -> Gold
-    ingesta_ds3 >> transformacion_silver_ds3 >> run_gold_dataset3
+    # ingesta_ds3 >> transformacion_silver_ds3 >> run_gold_dataset3
