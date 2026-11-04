@@ -62,11 +62,6 @@ def get_spark_session():
         .config("spark.driver.maxResultSize", "1g")
         .getOrCreate()
     )
-    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
-    hadoop_conf.set("fs.s3a.connection.timeout", "600000")
-    hadoop_conf.set("fs.s3a.connection.establish.timeout", "600000")
-    hadoop_conf.set("fs.s3a.threads.keepalivetime", "60")
-    hadoop_conf.set("fs.s3a.multipart.purge.age", "86400")
 
 def log_execution_to_postgres(run_id, status, records_count, dataset_name):
     connection = cursor = None
