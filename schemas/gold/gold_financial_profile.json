@@ -1,0 +1,42 @@
+{
+  "contract_version": "1.1.0",
+  "layer": "gold",
+  "schema_name": "gold_financial_profile",
+  "description": "Perfil financiero enriquecido con capacidad de ahorro estimada, fondo de emergencia y clasificación heurística de score.",
+  "source": {
+    "layer": "silver",
+    "dataset": "financial_profile",
+    "columns": ["user_id", "record_date", "age", "monthly_income_usd", "monthly_expenses_usd", "savings_usd", "has_loan", "loan_amount_usd", "monthly_emi_usd", "debt_to_income_ratio", "credit_score"]
+  },
+  "grain": "Una fila por combinación de user_id y record_date.",
+  "primary_key": ["user_id", "record_date"],
+  "currency": "USD según los campos de origen.",
+  "columns": [
+    {"name": "user_id", "type": "string", "nullable": false, "description": "Identificador de usuario.", "role": "primary_key"},
+    {"name": "record_date", "type": "date", "nullable": false, "description": "Fecha del snapshot financiero.", "role": "primary_key"},
+    {"name": "age", "type": "integer", "nullable": false, "description": "Edad en años.", "checks": {"min": 18}},
+    {"name": "monthly_income_usd", "type": "decimal(18,2)", "nullable": false, "description": "Ingreso mensual en USD.", "checks": {"min": 0}},
+    {"name": "monthly_expenses_usd", "type": "decimal(18,2)", "nullable": false, "description": "Gastos mensuales en USD.", "checks": {"min": 0}},
+    {"name": "savings_usd", "type": "decimal(18,2)", "nullable": false, "description": "Ahorro reportado en USD.", "checks": {"min": 0}},
+    {"name": "credit_score", "type": "integer", "nullable": false, "description": "Puntaje crediticio de la fuente.", "checks": {"min": 300, "max": 850}},
+    {"name": "has_loan", "type": "boolean", "nullable": false, "description": "Indica si el usuario reporta un préstamo."},
+    {"name": "loan_amount_usd", "type": "decimal(18,2)", "nullable": true, "description": "Monto de préstamo en USD; puede ser NULL si no aplica.", "checks": {"min": 0}},
+    {"name": "monthly_emi_usd", "type": "decimal(18,2)", "nullable": true, "description": "Pago mensual de préstamo en USD; puede ser NULL si no aplica.", "checks": {"min": 0}},
+    {"name": "debt_to_income_ratio", "type": "decimal(12,6)", "nullable": false, "description": "Ratio deuda-ingreso preservado en la escala de origen; confirmar semántica antes de mostrar como porcentaje.", "checks": {"min": 0}},
+    {"name": "savings_capacity", "type": "decimal(18,2)", "nullable": false, "description": "Capacidad estimada mensual: ingreso - gastos - EMI; puede ser negativa."},
+    {"name": "emergency_fund_months", "type": "decimal(12,1)", "nullable": false, "description": "Meses de gastos cubiertos por ahorros; cero si los gastos mensuales son cero.", "checks": {"min": 0}},
+    {"name": "nivel_score_category", "type": "string", "nullable": false, "description": "Categoría heurística derivada de credit_score.", "checks": {"allowed_values": ["Excelente 🟢", "Bueno 🟡", "Regular 🟠", "Bajo 🔴"]}},
+    {"name": "nivel_score_meaning", "type": "string", "nullable": false, "description": "Descripción informativa de la categoría heurística."},
+    {"name": "eligible_for_credit", "type": "boolean", "nullable": false, "description": "Indicador didáctico según score >= 580 y savings_capacity > 100; no es una aprobación crediticia real."},
+    {"name": "suggested_max_credit_limit", "type": "decimal(18,2)", "nullable": false, "description": "Estimación del prototipo: savings_capacity * 12 * 2.5 si eligible_for_credit; de lo contrario cero.", "checks": {"min": 0}},
+    {"name": "processed_at", "type": "timestamp", "nullable": false, "description": "Fecha y hora de construcción del registro Gold."}
+  ],
+  "quality_rules": [
+    "La combinación user_id + record_date debe ser única y no nula.",
+    "Los ingresos, gastos y ahorros deben ser no negativos.",
+    "Los campos loan_amount_usd y monthly_emi_usd pueden ser NULL cuando no aplican.",
+    "credit_score debe estar entre 300 y 850.",
+    "debt_to_income_ratio se conserva en escala original y no debe etiquetarse como porcentaje sin confirmar su definición.",
+    "eligible_for_credit y suggested_max_credit_limit son heurísticas académicas, no una decisión bancaria ni una oferta de crédito."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "contract_version": "1.1.0",
+  "layer": "gold",
+  "schema_name": "gold_category_spending",
+  "description": "Gasto mensual agregado por categoría derivado de personal_transactions.",
+  "source": {
+    "layer": "silver",
+    "dataset": "personal_transactions",
+    "columns": ["date", "amount", "type", "category"]
+  },
+  "grain": "Una fila por combinación de mes y categoría que tenga al menos una transacción Expense.",
+  "primary_key": ["period_month", "category"],
+  "currency_note": "Dataset1 no declara moneda. No combinar estos importes con USD sin conversión documentada.",
+  "columns": [
+    {"name": "period_month", "type": "date", "nullable": false, "description": "Primer día del mes de la agregación.", "role": "primary_key"},
+    {"name": "category", "type": "string", "nullable": false, "description": "Categoría estandarizada del gasto.", "role": "primary_key", "checks": {"allowed_values": ["Rent", "Travel", "Utilities", "Health & Fitness", "Shopping", "Food & Drink", "Entertainment", "Salary", "Investment", "Other"]}},
+    {"name": "expense_transaction_count", "type": "long", "nullable": false, "description": "Número de transacciones Expense de la categoría en el mes.", "checks": {"min": 0}},
+    {"name": "expense_total", "type": "decimal(18,2)", "nullable": false, "description": "Suma de valores absolutos de los importes Expense de la categoría y mes.", "checks": {"min": 0}},
+    {"name": "expense_share_pct", "type": "decimal(9,4)", "nullable": true, "description": "Porcentaje de la categoría sobre los gastos totales del mes; NULL si el total mensual es cero.", "checks": {"min": 0, "max": 100}}
+  ],
+  "quality_rules": [
+    "La combinación period_month + category debe ser única y no nula.",
+    "Solo deben incluirse transacciones Type = Expense.",
+    "expense_total debe ser no negativo.",
+    "expense_share_pct debe estar entre 0 y 100.",
+    "La suma de expense_share_pct por mes debe ser aproximadamente 100."
+  ]
+}

@@ -7,7 +7,16 @@ from datetime import datetime
 import psycopg2
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType
-from pyspark.sql.functions import col, when, sum as _sum, lit, current_timestamp
+from pyspark.sql.functions import (
+    col,
+    when,
+    sum as _sum,
+    lit,
+    current_timestamp,
+    trim,
+    concat_ws,
+    length
+)
 
 def to_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name.replace(" ", "_"))
@@ -105,16 +114,92 @@ def process_credit_cards(run_id):
     total_sin_duplicados = df_clean.count()
     duplicados_eliminados = total_leidos - total_sin_duplicados
 
-    # --- LÓGICA DE CUARENTENA ---
-    df_evaluated = df_clean.withColumn(
-        "quarantine_reason",
-        when(col("cust_id").isNull() | (col("cust_id") == ""), lit("ID de cliente nulo o vacío"))
-        .when(col("credit_limit").isNull() | (col("credit_limit") <= 0), lit("Límite de crédito inválido o <= 0"))
-        .otherwise(lit(None))
-    ).withColumn("quarantined_at", current_timestamp())
+   # --- LÓGICA DE CUARENTENA Y VALIDACIÓN ---
 
-    df_business_quarantine = df_evaluated.filter(col("quarantine_reason").isNotNull())
-    df_sanitized = df_evaluated.filter(col("quarantine_reason").isNull())
+    # 1. Definir las reglas de calidad
+    reglas_calidad = {
+
+        "cust_id_nulo_o_vacio": (
+            col("cust_id").isNull() |
+            (trim(col("cust_id").cast("string")) == "")
+        ),
+
+        "credit_limit_nulo_o_invalido": (
+            col("credit_limit").isNull() |
+            (col("credit_limit") <= 0)
+        )
+
+    }
+
+    # 2. Contabilizar los registros que incumplen cada regla
+    resultados_reglas = df_clean.agg(
+        *[
+            _sum(
+                when(condicion, 1).otherwise(0)
+            ).alias(nombre)
+            for nombre, condicion in reglas_calidad.items()
+        ]
+    ).first().asDict()
+
+    # 3. Calcular métricas reales
+    reglas_evaluadas = len(reglas_calidad)
+
+    # Número de reglas que presentan al menos un incumplimiento
+    reglas_fallidas = sum(
+        1
+        for cantidad in resultados_reglas.values()
+        if (cantidad or 0) > 0
+    )
+
+    # Total de incumplimientos detectados
+    total_incumplimientos = sum(
+        cantidad or 0
+        for cantidad in resultados_reglas.values()
+    )
+
+    # Detalle individual de las reglas
+    detalle_reglas = "\n".join(
+        f"{nombre}: {cantidad or 0} registros afectados"
+        for nombre, cantidad in resultados_reglas.items()
+    )
+
+    # 4. Generar motivos de cuarentena
+    razones = [
+        when(condicion, lit(nombre))
+        for nombre, condicion in reglas_calidad.items()
+    ]
+
+    df_evaluated = (
+        df_clean
+        .withColumn(
+            "_reason_parts",
+            concat_ws(" | ", *razones)
+        )
+        .withColumn(
+            "quarantine_reason",
+            when(
+                length(col("_reason_parts")) > 0,
+                col("_reason_parts")
+            ).otherwise(lit(None).cast("string"))
+        )
+        .withColumn(
+            "quarantined_at",
+            when(
+                col("quarantine_reason").isNotNull(),
+                current_timestamp()
+            )
+        )
+        .drop("_reason_parts")
+    )
+
+    # 5. Separar registros rechazados y registros válidos
+    df_business_quarantine = df_evaluated.filter(
+        col("quarantine_reason").isNotNull()
+    )
+
+    df_sanitized = df_evaluated.filter(
+        col("quarantine_reason").isNull()
+    )
 
     # Consolidar cuarentena total usando el safe_run_id
     if df_structural_quarantine is not None and df_structural_quarantine.count() > 0:
@@ -176,6 +261,10 @@ def process_credit_cards(run_id):
     Registros validados listos para Silver: {total_filas}
     Reglas de calidad evaluadas: {reglas_evaluadas}
     Reglas fallidas: {reglas_fallidas}
+    Total de incumplimientos: {total_incumplimientos}
+
+    Detalle de incumplimientos:
+    {detalle_reglas}
     ==================================================
     """
 

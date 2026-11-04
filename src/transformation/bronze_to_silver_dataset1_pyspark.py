@@ -38,7 +38,7 @@ def get_spark_session():
         .config("spark.hadoop.fs.s3a.fast.upload", "false") \
         .config("spark.sql.shuffle.partitions", "1") \
         .config("spark.default.parallelism", "1") \
-        .config("spark.driver.memory", "2g") \
+        .config("spark.driver.memory", "1g") \
         .getOrCreate()
 
     hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()

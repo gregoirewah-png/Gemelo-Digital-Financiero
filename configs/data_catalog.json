@@ -1,0 +1,203 @@
+{
+  "catalog_version": "1.0",
+  "project": {
+    "name": "Gemelo Digital Financiero Personal",
+    "description": "Prototipo académico de análisis financiero personal basado en una arquitectura Medallion (Bronze, Silver y Gold).",
+    "purpose": "Organizar información transaccional y de comportamiento financiero, calcular indicadores, analizar escenarios y explicar resultados mediante un asistente de IA.",
+    "important_scope_note": "Los tres datasets son fuentes analíticas separadas. No se debe asumir que pertenecen a la misma persona, que representan cuentas bancarias reales del usuario ni que sus identificadores permiten relacionarlos, salvo que el proyecto implemente y valide explícitamente esa relación."
+  },
+  "data_interpretation_rules": [
+    "Distinguir siempre entre filas originales y filas de las versiones sucias creadas para probar la calidad de datos.",
+    "Los conteos de calidad descritos aquí corresponden al perfilado de las versiones sucias compartido durante el desarrollo; no garantizan el conteo actual de Bronze, Silver o Gold.",
+    "No afirmar que un indicador ya está calculado o disponible en Gold. Los indicadores marcados como propuestos son ideas de análisis pendientes de verificar en la implementación.",
+    "No inventar resultados, importes, fechas, tablas Gold ni relaciones entre datasets.",
+    "Una fila en cuarentena no equivale necesariamente a una fila perdida: debe contabilizarse separadamente de duplicados y registros válidos.",
+    "Los valores nulos de loan_type para registros con has_loan = No son contextualmente esperados y no deben tratarse automáticamente como errores."
+  ],
+  "datasets": {
+    "dataset1": {
+      "id": "dataset1",
+      "name": "Transacciones personales",
+      "technical_name": "personal_transactions",
+      "purpose": "Registrar movimientos financieros individuales para analizar ingresos, gastos, categorías de consumo y evolución del flujo de efectivo.",
+      "role_in_project": "Fuente transaccional para el análisis de ingresos y gastos.",
+      "row_counts": {
+        "original_rows": 1500,
+        "dirty_version_rows": 1515,
+        "dirty_version_duplicate_rows_injected": 15,
+        "note": "El valor 1,515 corresponde a Dataset1_dirty.csv después de introducir errores y duplicados; no debe presentarse como el número de filas de la versión original."
+      },
+      "columns": [
+        {"source_name": "Date", "silver_name": "date", "data_type": "date", "description": "Fecha de la transacción."},
+        {"source_name": "Transaction Description", "silver_name": "transaction_description", "data_type": "string", "description": "Descripción o concepto del movimiento."},
+        {"source_name": "Category", "silver_name": "category", "data_type": "string/categorical", "description": "Categoría del movimiento financiero."},
+        {"source_name": "Amount", "silver_name": "amount", "data_type": "double", "description": "Importe de la transacción. La moneda y su convención deben confirmarse en los datos fuente."},
+        {"source_name": "Type", "silver_name": "type", "data_type": "string/categorical", "description": "Tipo de movimiento: ingreso o gasto."}
+      ],
+      "allowed_values": {
+        "type": ["Income", "Expense"],
+        "category": ["Rent", "Travel", "Utilities", "Health & Fitness", "Shopping", "Food & Drink", "Entertainment", "Salary", "Investment", "Other"]
+      },
+      "dirty_quality_profile": {
+        "nulls": {"Amount": 10},
+        "duplicates": 15,
+        "other_issues": [
+          "Fechas con formatos inconsistentes.",
+          "Espacios adicionales en descripciones.",
+          "Categorías con variantes de mayúsculas y espacios.",
+          "Valores Type inconsistentes, por ejemplo expense, EXPENSE, espacios iniciales y variantes de Income.",
+          "Formatos monetarios inconsistentes en Amount."
+        ],
+        "note": "Los conteos de formatos inconsistentes no fueron cuantificados en el perfilado registrado."
+      },
+      "candidate_indicators": [
+        {"name": "Total de ingresos", "definition": "Suma de amount donde type = Income.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Total de gastos", "definition": "Suma de amount donde type = Expense.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Flujo neto", "definition": "Total de ingresos menos total de gastos en el mismo periodo.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Gastos por categoría", "definition": "Suma de gastos agrupada por category.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Evolución mensual", "definition": "Ingresos, gastos y flujo neto agrupados por mes a partir de date.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Margen neto sobre ingresos", "definition": "(Ingresos - gastos) / ingresos * 100, cuando los ingresos sean positivos y los movimientos estén completos.", "status": "propuesto; no equivale necesariamente a una tasa de ahorro real"}
+      ],
+      "limitations": [
+        "No contiene campos explícitos de tarjeta, límite de crédito, tasa de interés, saldo de deuda o pago mínimo.",
+        "No confirma por sí solo que se hayan registrado todos los movimientos o todas las cuentas del usuario.",
+        "El flujo neto calculado no equivale necesariamente al ahorro real si faltan movimientos, transferencias o información de otras cuentas.",
+        "La moneda no debe asumirse sin verificar la fuente."
+      ]
+    },
+    "dataset2": {
+      "id": "dataset2",
+      "name": "Comportamiento de tarjetas de crédito",
+      "technical_name": "credit_card_behavior",
+      "purpose": "Describir saldos, compras, pagos, anticipos de efectivo, límites y frecuencias de uso de tarjetas de crédito.",
+      "role_in_project": "Fuente de comportamiento crediticio y utilización de crédito.",
+      "row_counts": {
+        "original_rows": 8950,
+        "dirty_version_rows": 8975,
+        "dirty_version_duplicate_rows_injected": 25,
+        "note": "El valor 8,975 corresponde a Dataset2_dirty.csv; no es el número de filas de la versión original."
+      },
+      "columns": [
+        {"source_name": "CUST_ID", "silver_name": "cust_id", "data_type": "string/id", "description": "Identificador del cliente."},
+        {"source_name": "BALANCE", "silver_name": "balance", "data_type": "double", "description": "Saldo de la cuenta o tarjeta."},
+        {"source_name": "BALANCE_FREQUENCY", "silver_name": "balance_frequency", "data_type": "double", "description": "Frecuencia de actualización o presencia del saldo, según la definición de la fuente."},
+        {"source_name": "PURCHASES", "silver_name": "purchases", "data_type": "double", "description": "Importe de compras."},
+        {"source_name": "ONEOFF_PURCHASES", "silver_name": "oneoff_purchases", "data_type": "double", "description": "Importe de compras de una sola exhibición."},
+        {"source_name": "INSTALLMENTS_PURCHASES", "silver_name": "installments_purchases", "data_type": "double", "description": "Importe de compras a plazos."},
+        {"source_name": "CASH_ADVANCE", "silver_name": "cash_advance", "data_type": "double", "description": "Importe de anticipos de efectivo."},
+        {"source_name": "PURCHASES_FREQUENCY", "silver_name": "purchases_frequency", "data_type": "double", "description": "Frecuencia de compras."},
+        {"source_name": "ONEOFF_PURCHASES_FREQUENCY", "silver_name": "oneoff_purchases_frequency", "data_type": "double", "description": "Frecuencia de compras de una sola exhibición."},
+        {"source_name": "PURCHASES_INSTALLMENTS_FREQUENCY", "silver_name": "purchases_installments_frequency", "data_type": "double", "description": "Frecuencia de compras a plazos."},
+        {"source_name": "CASH_ADVANCE_FREQUENCY", "silver_name": "cash_advance_frequency", "data_type": "double", "description": "Frecuencia de anticipos de efectivo."},
+        {"source_name": "CASH_ADVANCE_TRX", "silver_name": "cash_advance_trx", "data_type": "integer", "description": "Número de transacciones de anticipos de efectivo."},
+        {"source_name": "PURCHASES_TRX", "silver_name": "purchases_trx", "data_type": "integer", "description": "Número de transacciones de compra."},
+        {"source_name": "CREDIT_LIMIT", "silver_name": "credit_limit", "data_type": "double", "description": "Límite de crédito."},
+        {"source_name": "PAYMENTS", "silver_name": "payments", "data_type": "double", "description": "Importe de pagos realizados."},
+        {"source_name": "MINIMUM_PAYMENTS", "silver_name": "minimum_payments", "data_type": "double", "description": "Pago mínimo."},
+        {"source_name": "PRC_FULL_PAYMENT", "silver_name": "prc_full_payment", "data_type": "double", "description": "Proporción o frecuencia de pago completo, según la fuente."},
+        {"source_name": "TENURE", "silver_name": "tenure", "data_type": "integer", "description": "Antigüedad o duración de la relación, según la unidad definida por la fuente."}
+      ],
+      "dirty_quality_profile": {
+        "nulls": {"CREDIT_LIMIT": 21, "MINIMUM_PAYMENTS": 333},
+        "duplicates": 25,
+        "invalid_values_observed": [
+          "10 valores negativos en BALANCE.",
+          "9 valores negativos en PAYMENTS.",
+          "Valores monetarios con formato de texto introducidos en PURCHASES.",
+          "BALANCE_FREQUENCY y CASH_ADVANCE_FREQUENCY llegaron a presentar valores de hasta 1.5.",
+          "PRC_FULL_PAYMENT llegó a presentar un valor de 1.25.",
+          "TENURE incluyó valores inválidos introducidos como 0, -12 y 100."
+        ]
+      },
+      "candidate_indicators": [
+        {"name": "Utilización de crédito", "definition": "balance / credit_limit * 100, cuando credit_limit sea positivo.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Proporción de pago completo", "definition": "PRC_FULL_PAYMENT, interpretada según la definición de la fuente.", "status": "propuesto; verificar unidad y escala antes de usar"},
+        {"name": "Actividad de compras", "definition": "PURCHASES y PURCHASES_TRX, además de sus frecuencias.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Actividad de anticipos de efectivo", "definition": "CASH_ADVANCE, CASH_ADVANCE_TRX y CASH_ADVANCE_FREQUENCY.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Relación pagos/saldo", "definition": "PAYMENTS comparado con BALANCE, interpretando cuidadosamente el periodo de referencia.", "status": "propuesto; verificar implementación en Gold"}
+      ],
+      "limitations": [
+        "No contiene explícitamente tasa de interés, fecha de corte, fecha de vencimiento ni historial detallado de cada transacción.",
+        "No debe interpretarse como un historial completo de estados de cuenta sin verificar el periodo y las definiciones de la fuente.",
+        "La utilización de crédito no puede calcularse de forma confiable cuando CREDIT_LIMIT es nulo o no positivo.",
+        "La escala y definición de las variables de frecuencia deben respetarse; los valores fuera de rango de la versión sucia deben corregirse o ponerse en cuarentena.",
+        "La unicidad de CUST_ID debe comprobarse en los datos transformados antes de asumir una fila por cliente."
+      ]
+    },
+    "dataset3": {
+      "id": "dataset3",
+      "name": "Perfil financiero y socioeconómico",
+      "technical_name": "financial_profile",
+      "purpose": "Describir características demográficas, laborales y financieras, además de obligaciones crediticias y proporciones relacionadas con ingresos, deuda y ahorro.",
+      "role_in_project": "Fuente de perfil financiero y variables candidatas para análisis y modelos de aprendizaje automático.",
+      "row_counts": {
+        "original_rows": 32424,
+        "dirty_version_rows": 32454,
+        "dirty_version_duplicate_rows_injected": 30,
+        "note": "El valor 32,454 corresponde a Dataset3_dirty.csv; no es el número de filas de la versión original."
+      },
+      "columns": [
+        {"source_name": "user_id", "silver_name": "user_id", "data_type": "string/id", "description": "Identificador de usuario; la unicidad debe comprobarse."},
+        {"source_name": "age", "silver_name": "age", "data_type": "integer", "description": "Edad."},
+        {"source_name": "gender", "silver_name": "gender", "data_type": "string/categorical", "description": "Categoría de género indicada en la fuente."},
+        {"source_name": "education_level", "silver_name": "education_level", "data_type": "string/categorical", "description": "Nivel educativo."},
+        {"source_name": "employment_status", "silver_name": "employment_status", "data_type": "string/categorical", "description": "Situación laboral."},
+        {"source_name": "job_title", "silver_name": "job_title", "data_type": "string/categorical", "description": "Puesto u ocupación."},
+        {"source_name": "monthly_income_usd", "silver_name": "monthly_income_usd", "data_type": "double", "description": "Ingreso mensual reportado en USD."},
+        {"source_name": "monthly_expenses_usd", "silver_name": "monthly_expenses_usd", "data_type": "double", "description": "Gastos mensuales reportados en USD."},
+        {"source_name": "savings_usd", "silver_name": "savings_usd", "data_type": "double", "description": "Ahorros reportados en USD."},
+        {"source_name": "has_loan", "silver_name": "has_loan", "data_type": "boolean/normalized categorical", "description": "Indica si existe un préstamo; la fuente sucia presenta valores Yes/No."},
+        {"source_name": "loan_type", "silver_name": "loan_type", "data_type": "string/categorical nullable", "description": "Tipo de préstamo; puede ser nulo cuando has_loan = No."},
+        {"source_name": "loan_amount_usd", "silver_name": "loan_amount_usd", "data_type": "double", "description": "Importe del préstamo en USD."},
+        {"source_name": "loan_term_months", "silver_name": "loan_term_months", "data_type": "integer", "description": "Plazo del préstamo en meses."},
+        {"source_name": "monthly_emi_usd", "silver_name": "monthly_emi_usd", "data_type": "double", "description": "Pago mensual de la obligación o EMI en USD."},
+        {"source_name": "loan_interest_rate_pct", "silver_name": "loan_interest_rate_pct", "data_type": "double", "description": "Tasa de interés porcentual del préstamo."},
+        {"source_name": "debt_to_income_ratio", "silver_name": "debt_to_income_ratio", "data_type": "double", "description": "Relación deuda-ingreso reportada por la fuente; confirmar si está expresada como fracción o porcentaje."},
+        {"source_name": "credit_score", "silver_name": "credit_score", "data_type": "integer/numeric", "description": "Puntuación crediticia reportada; validar escala de la fuente."},
+        {"source_name": "savings_to_income_ratio", "silver_name": "savings_to_income_ratio", "data_type": "double", "description": "Relación ahorro-ingreso reportada por la fuente; confirmar escala."},
+        {"source_name": "region", "silver_name": "region", "data_type": "string/categorical", "description": "Región reportada."},
+        {"source_name": "record_date", "silver_name": "record_date", "data_type": "date", "description": "Fecha del registro."}
+      ],
+      "dirty_quality_profile": {
+        "nulls": {
+          "monthly_income_usd": 15,
+          "monthly_expenses_usd": 15,
+          "savings_usd": 15,
+          "credit_score": 15,
+          "loan_type": 19447
+        },
+        "duplicates": 30,
+        "contextual_null_rule": "Los 19,447 nulos de loan_type coinciden con 19,447 registros has_loan = No en el perfilado compartido. Son nulos contextualmente esperados; no deben imputarse ni rechazarse automáticamente.",
+        "invalid_values_observed": [
+          "Edades inválidas introducidas, incluyendo 5 y 150.",
+          "Valores negativos en monthly_income_usd, monthly_expenses_usd y savings_usd: 20 en cada campo.",
+          "Valores negativos en loan_amount_usd: 6.",
+          "Valores inválidos en loan_term_months: 7.",
+          "Valores negativos en monthly_emi_usd: 7.",
+          "Valores inválidos en loan_interest_rate_pct: 8; se observó un máximo de 150.",
+          "Valores negativos en debt_to_income_ratio: 15.",
+          "Valores negativos en savings_to_income_ratio: 15.",
+          "credit_score incluyó valores fuera de escala, incluyendo 100 y 1000."
+        ]
+      },
+      "candidate_indicators": [
+        {"name": "Debt-to-Income (DTI)", "definition": "Usar debt_to_income_ratio después de confirmar su escala y definición.", "status": "campo existente; validar escala y calidad antes de reportar"},
+        {"name": "Ahorro sobre ingreso", "definition": "Usar savings_to_income_ratio después de confirmar su escala y definición.", "status": "campo existente; validar escala y calidad antes de reportar"},
+        {"name": "Superávit mensual", "definition": "monthly_income_usd - monthly_expenses_usd.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Carga mensual de préstamo", "definition": "monthly_emi_usd comparado con monthly_income_usd, cuando ambos sean válidos y positivos.", "status": "propuesto; verificar implementación en Gold"},
+        {"name": "Perfil crediticio", "definition": "Distribución de credit_score después de validar la escala y los valores permitidos.", "status": "propuesto; confirmar rango válido de la fuente"}
+      ],
+      "limitations": [
+        "loan_type puede ser nulo cuando has_loan = No; ese patrón no debe tratarse como error automáticamente.",
+        "La escala exacta de debt_to_income_ratio y savings_to_income_ratio debe confirmarse antes de interpretarlas como fracción o porcentaje.",
+        "La escala y procedencia de credit_score deben confirmarse antes de aplicar rangos de referencia.",
+        "La unicidad de user_id no está confirmada; record_date sugiere que podrían existir múltiples registros por usuario.",
+        "No debe asumirse que las filas de este dataset se pueden unir con Dataset1 o Dataset2 sin una clave y una relación validadas."
+      ]
+    }
+  },
+  "gold_layer_status": {
+    "status": "not_verified_from_available_project_context",
+    "note": "No se han proporcionado aquí los nombres de las tablas o vistas Gold ni evidencia de que los indicadores candidatos ya estén materializados. El asistente debe describirlos como propuestos hasta que se confirme el esquema real de Gold."
+  }
+}

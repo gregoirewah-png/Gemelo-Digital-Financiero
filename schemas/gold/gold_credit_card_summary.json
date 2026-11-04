@@ -1,0 +1,46 @@
+{
+  "contract_version": "1.1.0",
+  "layer": "gold",
+  "schema_name": "gold_credit_card_summary",
+  "description": "Resumen del comportamiento de tarjeta y segmento K-Means derivado de credit_card_behavior.",
+  "source": {
+    "layer": "silver",
+    "dataset": "credit_card_balances",
+    "columns": ["cust_id", "balance", "balance_frequency", "purchases", "oneoff_purchases", "installments_purchases", "cash_advance", "purchases_frequency", "oneoff_purchases_frequency", "purchases_installments_frequency", "cash_advance_frequency", "cash_advance_trx", "purchases_trx", "credit_limit", "payments", "minimum_payments", "prc_full_payment", "tenure"]
+  },
+  "grain": "Una fila por cust_id para el snapshot disponible en Silver y su asignación de cluster.",
+  "primary_key": ["cust_id"],
+  "columns": [
+    {"name": "cust_id", "type": "string", "nullable": false, "description": "Identificador de cliente conservado desde Silver.", "role": "primary_key"},
+    {"name": "balance", "type": "decimal(18,2)", "nullable": false, "description": "Saldo actual de la tarjeta.", "checks": {"min": 0}},
+    {"name": "purchases", "type": "decimal(18,2)", "nullable": false, "description": "Importe total de compras.", "checks": {"min": 0}},
+    {"name": "oneoff_purchases", "type": "decimal(18,2)", "nullable": false, "description": "Importe de compras de una sola exhibición.", "checks": {"min": 0}},
+    {"name": "installments_purchases", "type": "decimal(18,2)", "nullable": false, "description": "Importe de compras a plazos.", "checks": {"min": 0}},
+    {"name": "cash_advance", "type": "decimal(18,2)", "nullable": false, "description": "Importe de disposiciones de efectivo.", "checks": {"min": 0}},
+    {"name": "payments", "type": "decimal(18,2)", "nullable": false, "description": "Importe de pagos.", "checks": {"min": 0}},
+    {"name": "minimum_payments", "type": "decimal(18,2)", "nullable": false, "description": "Importe de pago mínimo después de las reglas Silver de imputación.", "checks": {"min": 0}},
+    {"name": "credit_limit", "type": "decimal(18,2)", "nullable": false, "description": "Límite de crédito disponible en la fuente.", "checks": {"min_exclusive": 0}},
+    {"name": "available_credit", "type": "decimal(18,2)", "nullable": false, "description": "Crédito disponible calculado como credit_limit - balance. Puede ser negativo."},
+    {"name": "credit_utilization_pct", "type": "decimal(9,4)", "nullable": false, "description": "Utilización calculada como balance / credit_limit * 100. Puede superar 100 por sobregiro.", "checks": {"min": 0}},
+    {"name": "balance_frequency", "type": "decimal(9,6)", "nullable": false, "description": "Frecuencia de actualización del saldo, normalizada entre 0 y 1.", "checks": {"min": 0, "max": 1}},
+    {"name": "purchases_frequency", "type": "decimal(9,6)", "nullable": false, "description": "Frecuencia de compras, normalizada entre 0 y 1.", "checks": {"min": 0, "max": 1}},
+    {"name": "oneoff_purchases_frequency", "type": "decimal(9,6)", "nullable": false, "description": "Frecuencia de compras de una sola exhibición.", "checks": {"min": 0, "max": 1}},
+    {"name": "purchases_installments_frequency", "type": "decimal(9,6)", "nullable": false, "description": "Frecuencia de compras a plazos.", "checks": {"min": 0, "max": 1}},
+    {"name": "cash_advance_frequency", "type": "decimal(9,6)", "nullable": false, "description": "Frecuencia de disposiciones de efectivo.", "checks": {"min": 0, "max": 1}},
+    {"name": "prc_full_payment", "type": "decimal(9,6)", "nullable": false, "description": "Proporción de pagos completos, normalizada entre 0 y 1.", "checks": {"min": 0, "max": 1}},
+    {"name": "cash_advance_trx", "type": "long", "nullable": false, "description": "Número de disposiciones de efectivo.", "checks": {"min": 0}},
+    {"name": "purchases_trx", "type": "long", "nullable": false, "description": "Número de transacciones de compra.", "checks": {"min": 0}},
+    {"name": "tenure", "type": "integer", "nullable": false, "description": "Antigüedad reportada por la fuente; Silver garantiza valor mínimo de 1.", "checks": {"min": 1}},
+    {"name": "cluster", "type": "integer", "nullable": false, "description": "Identificador de segmento asignado por K-Means con k=4.", "checks": {"min": 0, "max": 3}},
+    {"name": "processed_at", "type": "timestamp", "nullable": false, "description": "Fecha y hora de construcción del registro Gold."}
+  ],
+  "quality_rules": [
+    "cust_id debe ser único y no nulo; se conserva el identificador fuera del vector K-Means.",
+    "Todos los campos de características requeridos deben existir antes del entrenamiento.",
+    "Los importes monetarios deben ser no negativos, excepto available_credit que puede ser negativo.",
+    "Las frecuencias deben estar entre 0 y 1.",
+    "credit_limit debe ser mayor que cero.",
+    "credit_utilization_pct puede superar 100 por sobregiro.",
+    "cluster debe estar en el intervalo 0 a 3."
+  ]
+}

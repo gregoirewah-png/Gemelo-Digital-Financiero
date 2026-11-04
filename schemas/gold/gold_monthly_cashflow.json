@@ -1,0 +1,137 @@
+{
+  "contract_version": "1.1.0",
+  "layer": "gold",
+  "schema_name": "gold_monthly_cashflow",
+  "description": "Flujo de efectivo mensual calculado a partir de transacciones personales del Dataset1.",
+  "source": {
+    "layer": "silver",
+    "dataset": "personal_transactions",
+    "columns": [
+      "date",
+      "amount",
+      "type",
+      "category"
+    ]
+  },
+  "grain": "Una fila por mes calendario del conjunto de transacciones procesado.",
+  "primary_key": [
+    "period_month"
+  ],
+  "currency_note": "Dataset1 no declara moneda. Los importes no deben mezclarse con USD ni con otras monedas sin conversión documentada.",
+  "columns": [
+    {
+      "name": "period_month",
+      "type": "date",
+      "nullable": false,
+      "description": "Primer día del mes al que corresponde la agregación.",
+      "role": "primary_key"
+    },
+    {
+      "name": "transaction_count",
+      "type": "long",
+      "nullable": false,
+      "description": "Número de transacciones Income y Expense incluidas.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "income_transaction_count",
+      "type": "long",
+      "nullable": false,
+      "description": "Número de transacciones clasificadas como Income.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "expense_transaction_count",
+      "type": "long",
+      "nullable": false,
+      "description": "Número de transacciones clasificadas como Expense.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "total_income",
+      "type": "decimal(18,2)",
+      "nullable": false,
+      "description": "Suma de valores absolutos de importes Income del mes.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "total_expenses",
+      "type": "decimal(18,2)",
+      "nullable": false,
+      "description": "Suma de valores absolutos de importes Expense del mes.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "net_cash_flow",
+      "type": "decimal(18,2)",
+      "nullable": false,
+      "description": "Flujo neto calculado como total_income menos total_expenses."
+    },
+    {
+      "name": "income_to_expense_ratio",
+      "type": "decimal(12,6)",
+      "nullable": true,
+      "description": "Total de ingresos dividido entre gastos; NULL cuando no hay gastos registrados.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "estimated_net_cash_flow_rate_pct",
+      "type": "decimal(9,4)",
+      "nullable": true,
+      "description": "Flujo neto dividido entre ingresos por 100; NULL cuando los ingresos son cero. No representa ahorro observado."
+    },
+    {
+      "name": "financial_health_score",
+      "type": "string",
+      "nullable": false,
+      "description": "Clasificación heurística basada en income_to_expense_ratio.",
+      "checks": {
+        "allowed_values": [
+          "Excelente",
+          "Buena",
+          "Regular",
+          "En Riesgo",
+          "Sin gastos registrados"
+        ]
+      }
+    }
+  ],
+  "row_checks": [
+    {
+      "name": "net_cash_flow_consistent",
+      "type": "difference_equals",
+      "target": "net_cash_flow",
+      "left": "total_income",
+      "right": "total_expenses",
+      "tolerance": 0.01
+    },
+    {
+      "name": "transaction_counts_consistent",
+      "type": "sum_equals",
+      "target": "transaction_count",
+      "left": "income_transaction_count",
+      "right": "expense_transaction_count",
+      "tolerance": 0
+    }
+  ],
+  "quality_rules": [
+    "period_month debe ser único y no nulo.",
+    "transaction_count debe ser igual a income_transaction_count + expense_transaction_count.",
+    "net_cash_flow debe ser igual a total_income - total_expenses.",
+    "Los importes acumulados deben ser no negativos.",
+    "Los ratios pueden ser NULL cuando el denominador sea cero.",
+    "La clasificación financiera es una regla heurística del prototipo y no una calificación bancaria."
+  ]
+}
