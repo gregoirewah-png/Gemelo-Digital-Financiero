@@ -30,3 +30,6 @@ models/*
 
 # Docker
 *.pid
+
+.env.example    
+.env
