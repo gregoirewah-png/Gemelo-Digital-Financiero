@@ -1,35 +1,16 @@
-# Environment
 .env
-
-# Python
+.venv/
 __pycache__/
 *.py[cod]
-.venv/
-venv/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Data
-data/bronze/*
-data/silver/*
-data/gold/*
-
-# Logs
-logs/*
-*.log
-
-# Models
-models/*
-
-# OS
+.pytest_cache/
+logs/
+models/
+postgres_data/
+data/bronze/
+data/silver/
+data/gold/
+data/quarantine/
+data/metadata/
 .DS_Store
-
-# IDE
-.vscode/
-
-# Docker
-*.pid
-
-.env.example    
-.env
+.backups/
+docs/

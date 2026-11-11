@@ -1,714 +1,313 @@
-# Arquitectura del Proyecto
-## Gemelo Digital Financiero Personal
+# Gemelo Digital Financiero Personal
 
-## 1. Objetivo de la arquitectura
+Documento de arquitectura de la implementación integrada. Actualizado el 10 de noviembre de 2026.
 
-La arquitectura tiene como objetivo establecer una plataforma de datos reproducible, escalable y trazable para el desarrollo de un Gemelo Digital Financiero Personal.
+## Propósito y alcance
 
-La solución integrará tres datasets relacionados con finanzas personales y los procesará mediante una arquitectura de datos basada en las capas Bronze, Silver y Gold. Los datos serán almacenados en MinIO, procesados mediante PySpark y Pandas, validados mediante Great Expectations y orquestados mediante Apache Airflow.
+El proyecto académico BBVA–Tecmilenio construye una plataforma de Ingeniería de Datos con capas Bronze, Silver y Gold, calidad declarativa, orquestación, publicación analítica y una experiencia conversacional. Los resultados de negocio dependen de fuentes públicas independientes. El pipeline procesa transacciones personales, comportamiento de tarjetas y perfiles sintéticos.
 
-La información procesada alimentará indicadores financieros, procesos de Machine Learning y un modelo de lenguaje ejecutado localmente mediante Ollama. Finalmente, Streamlit proporcionará la interfaz de interacción con el usuario.
+La versión integrada vive en la carpeta `Gemelo Digital Financiero BBVA`. Se creó a partir de `Gemelo-Digital-Financiero 23.21.16`, conservando sus fuentes CSV, contratos Gold y transformaciones analíticas. Sus volúmenes Docker son independientes. La información de la instalación anterior se puede conservar y auditar por separado.
 
----
-
-## 2. Arquitectura general
-
-```mermaid
-flowchart TD
-
-    A["Dataset 1<br/>Transacciones personales"]
-    B["Dataset 2<br/>Perfil financiero"]
-    C["Dataset 3<br/>Machine Learning"]
-
-    A --> D["Apache Airflow<br/>Orquestación"]
-    B --> D
-    C --> D
-
-    D --> E["MinIO<br/>Data Lake"]
-
-    E --> F["Bronze<br/>Datos originales"]
-
-    F --> G["PySpark / Pandas<br/>Procesamiento"]
-
-    G --> H["Great Expectations<br/>Validación de calidad"]
-
-    H --> I["Silver<br/>Datos limpios y transformados"]
-
-    I --> J["PySpark / SQL<br/>Transformación analítica"]
-
-    J --> K["Gold<br/>Datos analíticos"]
-
-    K --> L["PostgreSQL<br/>KPIs y resultados"]
-
-    K --> M["Machine Learning<br/>Predicción / clasificación"]
-
-    L --> N["Streamlit<br/>Gemelo Digital"]
-
-    M --> N
-
-    N --> O["Ollama<br/>Modelo de lenguaje"]
-
-    O --> N
-```
-
----
-
-## 3. Flujo de datos
-
-El flujo de datos comienza con la incorporación de los tres datasets seleccionados. Apache Airflow será responsable de orquestar las diferentes etapas del pipeline.
-
-Los datos originales se almacenarán en la capa Bronze dentro de MinIO. Esta capa conservará los datos en su estado original para mantener trazabilidad y permitir su reprocesamiento.
-
-Posteriormente, PySpark y Pandas realizarán las operaciones de limpieza y transformación. Great Expectations validará la calidad de los datos antes de permitir su incorporación a la capa Silver.
-
-La capa Silver contendrá datos limpios, estandarizados y estructurados. A partir de esta información se generará la capa Gold, orientada al análisis, generación de KPIs y preparación de características para Machine Learning.
-
-Los resultados analíticos podrán almacenarse en PostgreSQL para facilitar su consulta desde la aplicación Streamlit.
-
-El modelo de Machine Learning utilizará los datos preparados en Gold para generar predicciones o clasificaciones relacionadas con el riesgo financiero. Ollama será utilizado como componente de lenguaje para interpretar la información financiera disponible y generar respuestas comprensibles para el usuario.
-
----
-
-## 4. Capas de datos
-
-### 4.1 Bronze
-
-La capa Bronze almacena los datos originales provenientes de las fuentes de información.
-
-Características:
-
-- Conservación de los datos originales.
-- Mínima transformación.
-- Trazabilidad del origen.
-- Registro de fecha de ingestión.
-- Identificación de la ejecución del pipeline.
-- Posibilidad de reprocesamiento.
-
-Estructura propuesta:
-
-```text
-bronze/
-├── transactions/
-├── financial_profile/
-└── ml/
-```
-
----
-
-### 4.2 Silver
-
-La capa Silver contiene información limpia, validada y transformada.
-
-En esta capa se realizarán procesos como:
-
-- Conversión de tipos de datos.
-- Tratamiento de valores nulos.
-- Eliminación de duplicados.
-- Normalización de nombres.
-- Validación de rangos.
-- Estandarización de categorías.
-- Integración de información relacionada.
-
-Great Expectations será utilizado para verificar las reglas de calidad antes de considerar los datos como aptos para análisis.
-
-Estructura propuesta:
-
-```text
-silver/
-├── transactions/
-├── financial_profile/
-└── ml/
-```
-
----
-
-### 4.3 Gold
-
-La capa Gold contiene información preparada para consumo analítico, generación de indicadores y Machine Learning.
-
-Estructura propuesta:
-
-```text
-gold/
-├── financial_kpis/
-├── user_financial_profile/
-├── credit_risk_features/
-└── ml_features/
-```
-
-Los datos de esta capa podrán ser utilizados por:
-
-- Streamlit.
-- PostgreSQL.
-- Modelos de Machine Learning.
-- Procesos de análisis financiero.
-- Sistema de recomendaciones.
-
----
-
-## 5. Componentes tecnológicos
-
-| Tecnología | Responsabilidad |
-|---|---|
-| Docker | Contenerización y reproducibilidad del entorno |
-| Apache Airflow | Orquestación de pipelines |
-| MinIO | Almacenamiento de objetos y Data Lake |
-| Delta Lake / Parquet | Formato de almacenamiento |
-| PySpark | Procesamiento y transformación de datos |
-| Pandas | Exploración y procesamiento de datos |
-| Great Expectations | Validación y control de calidad |
-| PostgreSQL | Almacenamiento relacional y consulta de resultados |
-| Ollama | Ejecución local del modelo de lenguaje |
-| Streamlit | Interfaz del Gemelo Digital |
-| Git / GitHub | Control de versiones y documentación |
-
----
-
-## 6. Arquitectura de almacenamiento
-
-MinIO será utilizado como almacenamiento principal del Data Lake.
-
-La información se organizará siguiendo el modelo:
-
-```text
-MinIO
-│
-├── Bronze
-│   ├── transactions
-│   ├── financial_profile
-│   └── ml
-│
-├── Silver
-│   ├── transactions
-│   ├── financial_profile
-│   └── ml
-│
-└── Gold
-    ├── financial_kpis
-    ├── user_financial_profile
-    ├── credit_risk_features
-    └── ml_features
-```
-
-### Parquet
-
-Almacenamiento columnar altamente comprimido que optimiza las lecturas analíticas (solo lee las columnas necesarias) y preserva los esquemas nativamente. Es el estándar de facto para data lakes.
-
-### Omisión de Delta Lake: 
-
-Su implementación introduce dependencias complejas de control de concurrencia y manifiestos de metadatos (ACID) que exceden el alcance del MVP actual. Prescindir de él garantiza la entrega oportuna del producto funcional priorizando la estabilidad del flujo.
-
----
-
-## 7. Procesamiento
-
-### PySpark
-
-PySpark será utilizado principalmente para las transformaciones de datos que requieran procesamiento estructurado y operaciones sobre conjuntos de datos.
-
-### Pandas
-
-Pandas será utilizado principalmente para:
-
-- Exploración inicial.
-- Análisis descriptivo.
-- Preparación de datos para Machine Learning.
-- Operaciones de menor volumen.
-
-La selección entre PySpark y Pandas dependerá del volumen y complejidad de cada operación.
-
----
-
-## 8. Calidad de datos
-
-Great Expectations será integrado al pipeline para validar la calidad de los datos.
-
-Ejemplos de reglas:
-
-```text
-Edad
-→ Debe encontrarse dentro de un rango válido.
-
-Ingreso mensual
-→ No debe ser negativo.
-
-Gastos mensuales
-→ No deben ser negativos.
-
-Credit Score
-→ Debe encontrarse dentro del rango definido por el dataset.
-
-Registros
-→ No deben contener duplicados cuando exista una clave única.
-```
-
-Flujo:
+## Flujo de información
 
 ```mermaid
 flowchart LR
-    A["Datos transformados"] --> B["Great Expectations"]
-    B --> C{"Validación"}
-    C -->|PASS| D["Continuar pipeline"]
-    C -->|FAIL| E["Registrar error"]
+    CSV[Fuentes CSV] --> B[Bronze por run_id]
+    B --> S[Silver Delta por run_id]
+    S --> G[Gold Delta por run_id]
+    S --> Q[Cuarentena]
+    G --> ML[K-Means, anomalías e impago]
+    G --> V[Validación dimensional y features]
+    ML --> V
+    V --> PG[Publicación transaccional PostgreSQL]
+    PG --> AI[Agente con herramientas de consulta]
+    PG --> MC[Monte Carlo D1 y perfil personal]
+    MC --> R[Resultados versionados MinIO y PostgreSQL]
+    R --> AI
+    AI --> U[Chat del usuario]
+    PG --> O[Vista ejecutiva e ingeniería]
+    R --> O
+    E[Logs y métricas por tarea] --> O
 ```
 
----
+La publicación PostgreSQL se realiza después de validar las tres ramas originales, las anomalías, el modelo supervisado y el perfil personal. Un único puntero selecciona la publicación activa. Todas las tablas de esa fotografía se insertan en una transacción antes de mover el puntero. Una falla revierte la transacción y permite seguir consultando la fotografía anterior.
 
-## 9. Machine Learning
+Las simulaciones se calculan después de publicar Gold. Tienen un ciclo de vida independiente y pueden recalcularse desde una publicación existente. Una falla de simulación deja disponible Gold y aparece como falla de su tarea.
 
-El componente de Machine Learning utilizará las características preparadas en la capa Gold.
+## Fuentes y semántica
 
-Flujo propuesto:
+| Fuente | Grano de origen | Uso | Identidad y unidad |
+| --- | --- | --- | --- |
+| Dataset 1 | Movimiento con fecha, categoría, importe y tipo | Flujo mensual, composición del gasto y Monte Carlo | Sin identificador personal. Moneda sin confirmar |
+| Dataset 2 | Cliente de tarjeta `cust_id` | Utilización, segmentación y anomalías | Población propia. Moneda sin confirmar |
+| Dataset 3 | Usuario y fecha de registro | Perfil sintético y variables de negocio | `user_id` y `record_date`. Campos monetarios en USD |
+
+Los identificadores de Dataset 2 y Dataset 3 pertenecen a poblaciones independientes. El modelo dimensional conserva dimensiones separadas y valida las relaciones internas de cada fuente. Dataset 1 representa un perfil transaccional demostrativo. El flujo acumulado histórico no identifica el ahorro disponible en una cuenta.
+
+## Almacenamiento y versionado
+
+Bronze conserva el archivo CSV original byte por byte mediante MinIO y añade metadatos con SHA-256, cantidad de registros, columnas y fecha de ingesta. El reintento de un mismo `run_id` exige el mismo hash de la fuente. Una fuente modificada requiere una corrida nueva.
+
+Las rutas tienen la forma `s3a://<capa>/<dataset>/run_id=<id_seguro>/`. El identificador seguro conserva una versión normalizada y un sufijo SHA-256 de doce caracteres para evitar colisiones entre identificadores con signos diferentes. Todas las etapas usan la misma función. Silver consume exclusivamente la partición Bronze de su corrida. Las rutas históricas basadas en `ingestion_date` permanecen en la instalación anterior y requieren una nueva ingesta o una migración explícita para incorporarse a esta versión.
+
+Silver válido y Gold se almacenan en Delta Lake sobre MinIO. Las rutas Parquet de corridas anteriores se pueden seguir leyendo. Las escrituras se pueden repetir dentro de una corrida antes de publicar. PostgreSQL conserva fotografías publicadas inmutables. Una repetición de publicación compara hashes del contenido analítico, excluyendo timestamps de procesamiento, y rechaza cambios bajo un identificador ya publicado.
+
+La consistencia entre objetos MinIO y PostgreSQL se administra mediante el manifiesto de publicación. Los consumidores consultan publicaciones confirmadas. Si una escritura de objetos termina y la transacción SQL falla, pueden quedar objetos sin referencia que el reintento puede completar. Una publicación confirmada tiene referencia y checksums.
+
+## Calidad y conciliación
+
+Los contratos Silver en `schemas/dataset*_schema.json` declaran tipos, nulabilidad, dominios, límites y llaves. El motor PySpark normaliza texto y valores booleanos, interpreta fechas de los formatos aceptados y convierte importes con punto decimal y coma de miles. Los valores no interpretables se separan hacia cuarentena.
+
+La deduplicación se ejecuta después de normalizar. Las llaves con filas conflictivas se ponen en cuarentena. Dataset 3 permite varias fechas por usuario y usa la llave compuesta. Los campos del préstamo son obligatorios cuando `has_loan` es verdadero. `loan_type` puede ser nulo cuando no aplica. Los importes negativos de tarjetas y perfiles se rechazan según los contratos. Dataset 1 conserva el signo de origen y Gold agrega magnitudes absolutas separadas por tipo de movimiento, por compatibilidad con la convención del proyecto.
+
+Cada corrida concilia la identidad `leídos = duplicados eliminados + cuarentena + válidos`. Se registran las cantidades por regla y el número de reglas con incumplimientos. Las reglas se ejecutan con expresiones nativas de Spark sobre contratos declarativos. Great Expectations y dbt son alternativas descritas en la propuesta original y no forman parte del motor ejecutado por esta versión.
+
+Los contratos Gold existentes bloquean tipos incorrectos, nulos en campos obligatorios, llaves repetidas, rangos inválidos y diferencias aritméticas. La publicación añade validaciones entre hechos y dimensiones, conciliación entre gasto mensual y categorías y cobertura uno a uno de clientes de tarjeta con features de anomalías.
+
+El porcentaje de registros rechazados se calcula como `100 × cuarentena / leídos`, exclusivamente en tareas Silver. El resumen usa el último intento de cada tarea para evitar contar los reintentos como nuevos volúmenes. Los duplicados eliminados y las reglas fallidas se muestran por separado. Un conjunto vacío se presenta como ausencia de datos.
+
+## Modelo dimensional
+
+| Relación | Grano publicado | Llave | Dimensiones |
+| --- | --- | --- | --- |
+| `gold.monthly_cashflow` | Corrida y mes | `source_run_id, period_month` | `serving.dim_month` |
+| `gold.category_spending` | Corrida, mes y categoría | `source_run_id, period_month, category` | Mes y `serving.dim_category` |
+| `gold.credit_cards` | Corrida y cliente de tarjeta | `source_run_id, cust_id` | `serving.dim_card_customer` |
+| `gold.financial_profiles` | Corrida, usuario y fecha | `source_run_id, user_id, record_date` | `serving.dim_profile_user` |
+
+Las dimensiones se materializan como vistas de lectura de la fotografía activa. PostgreSQL aplica llaves primarias y una llave foránea entre categorías y flujo mensual. La comprobación de cobertura de tarjetas y anomalías ocurre antes de publicar. El manifiesto guarda los resultados de validación, rutas, conteos y hashes.
+
+Esta implementación usa una constelación de hechos por fuente. Las dimensiones son vistas derivadas y el historial se versiona por publicación. Para adoptar dimensiones físicas con SCD se deberá ampliar el contrato y la estrategia de historización.
+
+## Feature Store del MVP
+
+El Feature Store es offline y se implementa mediante fotografías versionadas y vistas SQL.
+
+| Conjunto | Entidad | Variables principales | Disponibilidad |
+| --- | --- | --- | --- |
+| `serving.card_features` | Corrida y `cust_id` | Utilización, ratios de pago, segmento, score y bandera de anomalía | `available_at` de publicación y `card-features-v1` |
+| `serving.profile_features` | Corrida, `user_id` y fecha | Capacidad mensual estimada, meses de emergencia y score | `available_at` de publicación y `profile-features-v1` |
+
+El manifiesto registra el grano y las validaciones. `gold.publications.published_at` determina cuándo una feature estaba disponible para consumo. Un entrenamiento retrospectivo debe seleccionar una publicación con disponibilidad anterior o igual a su fecha de corte y respetar `record_date`. Las vistas activas sirven para inferencia actual. El historial de `gold.*` permite reconstruir una fotografía pasada con permisos de ingeniería.
+
+La capacidad mensual del perfil conserva la fórmula existente `ingreso - gastos - EMI`. Su interpretación depende de que los gastos reportados excluyan la cuota del préstamo. Esta condición debe confirmarse con la fuente antes de usarla en una decisión. Los indicadores de elegibilidad y límite sugerido son heurísticas académicas existentes.
+
+## Modelos de tarjetas
+
+Gold Dataset 2 conserva K-Means con cuatro segmentos, semilla 42 y estandarización. Sus etiquetas identifican grupos estadísticos y requieren interpretación según sus características. El script exploratorio `cluster_credit_cards_dataset2.py` permite comparar varios valores de K, y el DAG usa la segmentación estable incluida en la transformación Gold.
+
+Isolation Forest consume exclusivamente la corrida correspondiente, ordenada por `cust_id`, y genera scores, ratios de pago y bandera de anomalía. Se ejecuta con 200 árboles, contaminación 0.02 y semilla 42. Guarda el modelo y las métricas bajo `models/`, además de publicar las anomalías en MinIO. Una anomalía describe una observación atípica. La probabilidad de impago se calcula por un modelo supervisado independiente sobre UCI; no se atribuye una etiqueta de impago a Dataset 2.
+
+## Monte Carlo de Dataset 1
+
+El modelo utiliza `gold.monthly_cashflow` de una publicación explícita o de la publicación activa al iniciar el cálculo. Requiere entre tres y 1,200 meses válidos, contiguos y únicos, con ingresos y gastos finitos y no negativos. Dataset 1 original contiene 60 meses entre enero de 2020 y diciembre de 2024.
+
+### Saldo inicial
+
+`initial_savings` es el saldo líquido disponible al comienzo del primer mes proyectado, en la misma unidad monetaria de Dataset 1. Lo proporciona el usuario por chat o el operador en el formulario. El DAG usa `MC_INITIAL_SAVINGS`, cuyo valor inicial es cero y representa una hipótesis de arranque. El agente solicita el saldo si el usuario aún no lo proporcionó. Los ahorros de Dataset 3 y la suma histórica del flujo no se usan como saldo inicial porque pertenecen a conceptos o poblaciones diferentes.
+
+### Muestreo y ecuación
+
+Cada trayectoria sortea meses históricos con reemplazo. El ingreso y el gasto del mes sorteado permanecen emparejados para conservar su dependencia contemporánea. Los meses futuros se muestrean de forma independiente, con la misma distribución empírica histórica. Todos los escenarios de una corrida comparten las mismas muestras aleatorias.
+
+Para un escenario con cambio de ingreso `a`, cambio de gasto `b` y gasto mensual adicional `c`, el saldo se calcula mediante `saldo[t] = saldo[t-1] + ingreso_sorteado[t] × (1+a/100) - gasto_sorteado[t] × (1+b/100) - c`.
+
+### Supuestos documentados
+
+- Se omiten estacionalidad, inflación, tendencia, rendimientos del ahorro e intereses de deuda.
+- El periodo histórico observado se toma como referencia para la distribución futura. El remuestreo no genera shocks fuera de los valores históricos, salvo los cambios explícitos de escenario.
+- La independencia temporal omite rachas y autocorrelación entre meses. El muestreo pareado conserva la relación ingreso–gasto dentro de un mes.
+- Se asume que los movimientos representan suficientemente cada mes. La agregación disponible no permite verificar que los meses extremos estén completos. El usuario debe confirmar su cobertura antes de interpretar la proyección.
+- Un mes sin datos bloquea el cálculo. Su ausencia requiere revisión de cobertura.
+- Los saldos negativos representan déficit acumulado. No se aplican límites de crédito ni cargos por financiar ese déficit.
+- La simulación conserva la unidad monetaria de origen, cuya moneda permanece pendiente de confirmar.
+- Más trayectorias reducen la variación por muestreo Monte Carlo y mantienen las limitaciones de la historia y de los supuestos.
+- La reproducción exige la misma historia ordenada, semilla, configuración, versión del modelo y versiones de NumPy/Pandas.
+
+### Parámetros y escenarios
+
+Los valores iniciales son 5,000 trayectorias por escenario, horizonte de 12 meses y semilla 42. El usuario puede ajustarlos por conversación. El formulario del equipo permite ajustar saldo inicial, horizonte, trayectorias, semilla, cambio de gastos y gasto recurrente adicional. El DAG independiente acepta la configuración completa en JSON.
+
+Se permiten de 100 a 50,000 trayectorias, de 1 a 60 meses y hasta cinco escenarios. Los escenarios iniciales son base, gastos +10% e ingresos -10%. Los cambios porcentuales aceptan valores entre -100% y +200%. Los parámetros usan puntos porcentuales, por lo que 10 representa 10%. Las etiquetas con cambios explícitos, como Gastos +10%, deben coincidir con su parámetro y se rechazan si difieren. Se limita el gasto adicional a un valor finito entre cero y 1e9 por mes.
+
+### Publicación y recálculo
+
+`simulation.runs` conserva `simulation_run_id`, `source_run_id`, configuración, versión del modelo, hash de la historia, cantidad de meses y ruta MinIO. `simulation.results` tiene una fila por simulación, escenario y mes. Los archivos `metadata.json` y `results.json` se guardan en el bucket `simulations`.
+
+Cada cálculo nuevo recibe un UUID o el identificador del DAG de simulación. Repetir un identificador con la misma configuración e historia es idempotente. Reutilizarlo con otra historia o parámetros produce error. El cálculo lee la fotografía Gold y escribe exclusivamente resultados de simulación. Los objetos se escriben antes de confirmar su referencia SQL. El reintento puede recuperar una publicación parcial.
+
+### Interpretación
+
+P05, P50 y P95 son percentiles transversales del saldo simulado en cada mes. La franja P05–P95 representa el 90% central de esas simulaciones para ese mes. La trayectoria formada por las medianas mensuales puede combinar resultados de trayectorias diferentes.
+
+`probability_negative` es la fracción de trayectorias con saldo negativo en ese mes. `probability_ever_negative` es la fracción que tuvo al menos un saldo negativo hasta ese mes. La segunda es acumulativa. Estas probabilidades describen el experimento condicionado a sus supuestos. La banda no constituye un intervalo de confianza de un estimador y un saldo negativo no equivale a impago bancario.
+
+## Agente y acceso a Gold
+
+El agente obtiene un resumen y la serie mensual desde PostgreSQL antes de enviar una pregunta al modelo. Para consultas adicionales ofrece herramientas de dominio con plantillas SQL fijas y parámetros. El LLM selecciona el dataset, vista, periodo o identificador. El código controla las consultas y el rol lector tiene permisos sobre las vistas de consumo y simulaciones.
+
+Las respuestas combinan evidencia consultada, metadatos de las fuentes e historial reciente de conversación. Cada turno fija el identificador de publicación desde su primera lectura y lo reutiliza en las herramientas posteriores para conservar la misma fotografía. La herramienta de simulación permite recalcular escenarios cuando se solicita. La pregunta y la evidencia recuperada se envían al servicio Groq configurado en `.env`. Una conexión Gold fallida se informa al usuario. Un catálogo de metadatos por sí solo no prueba que una tabla esté publicada.
+
+La aplicación usa permisos de escritura para publicar simulaciones a través del servicio de dominio. Las consultas del modelo usan una conexión distinta con el rol `GOLD_READER_USER`. Las herramientas de dominio acotan los cambios posibles. Para un despliegue multiusuario real se deberá incorporar autenticación por persona, autorización por entidad y un servicio aislado de simulación.
+
+## Experiencias Streamlit
+
+La interfaz personal muestra un resumen pasivo del último mes y del ahorro disponible. La interacción se realiza mediante chat y cuatro preguntas sugeridas. El perfil Alex es ficticio y sus fuentes comparten una identidad común. Las respuestas cotidianas evitan términos de infraestructura y muestran gráficos cuando ayudan a entender gastos o escenarios. Los errores de la respuesta abierta se comunican con una alternativa local.
+
+La aplicación de operación requiere las credenciales `OPERATIONS_USER` y `OPERATIONS_PASSWORD` y contiene seis espacios. Perfil personal muestra la identidad conciliada y Modelo de impago presenta AUC, Brier y calibración. Los otros cuatro espacios son los siguientes. El panorama financiero muestra ingresos, flujo, composición del gasto y segmentos. Calidad y operación muestra estados, duración, volúmenes y rechazo ponderado. El detalle técnico permite examinar métricas, errores y logs por intento, además del manifiesto dimensional. Escenarios permite recalcular y examinar bandas y probabilidades.
+
+Ambas aplicaciones usan el tema declarado en `.streamlit/config.toml`, con fondo claro, texto azul oscuro y jerarquía de tarjetas. El CSS comparte las variables de color de Streamlit para que los componentes mantengan contraste si el navegador selecciona otro tema. Se publican en puertos distintos. La vista operativa muestra la versión de la imagen instalada.
+
+## Airflow, logs y tolerancia a fallos
+
+El DAG maestro contiene 19 tareas: preparación, tres ingestas originales, tres Silver, tres Gold, anomalías, ingesta UCI, features UCI, entrenamiento supervisado, ingesta personal, Gold personal, publicación SQL y dos simulaciones. La publicación depende también del modelo y del perfil conciliado. Se ejecuta diariamente, sin catchup, con una corrida activa y una tarea pesada simultánea para limitar recursos en el equipo local. Las tareas tienen dos reintentos y límite de treinta minutos.
+
+Cada proceso usa `src.pipeline` y registra inicio, estado final, duración, métricas y un extracto de log en `ops.job_runs`. La llave contiene `run_id`, tarea e intento. El log se escribe en el volumen Docker `pipeline_logs` y en stdout/stderr, que Airflow captura. Los logs de ingesta se consultan del mismo modo que los de transformación. El callback registra fallos agotados y puede cerrar registros que quedaron en ejecución tras una terminación externa.
+
+El DAG `recalcular_monte_carlo` permite recalcular desde una publicación disponible usando `dag_run.conf`. El script de importación histórica reconoce el `run_id` real de los reportes Silver y conserva su procedencia. Los logs históricos importados pueden contener métricas heredadas cuya confiabilidad depende del reporte original.
+
+## Configuración y secretos
+
+Las claves de PostgreSQL, MinIO, Groq, Airflow, pgAdmin y operación se leen desde `.env`. Los scripts de Python cargan el archivo cuando se ejecutan localmente y Compose lo incorpora al entorno. `.env` está excluido de Git y se genera con permisos de archivo restringidos. `.env.example` contiene nombres y valores no sensibles. `scripts/configure_env.py` completa secretos vacíos mediante un generador criptográfico.
+
+El rol lector es distinto del usuario de administración. La inicialización crea sus permisos sobre los esquemas de consumo. Los logs del wrapper redactan valores de variables de contraseña, secreto y API key. El archivo de configuración y el volumen de modelos deben conservarse para poder volver a abrir la instalación.
+
+## Matriz de versiones
+
+| Componente | Versión fijada | Función |
+| --- | --- | --- |
+| Python | 3.11.9, incluido en imagen Airflow | Runtime |
+| Apache Airflow | 2.9.1 | Orquestación |
+| Java | OpenJDK 17 | Ejecución Spark |
+| PySpark / Spark | 3.5.3 | Procesamiento y K-Means |
+| Scala | 2.12, distribución Spark | Runtime Spark |
+| Hadoop AWS | 3.3.4 | Conector S3A |
+| AWS Java SDK bundle | 1.12.262 | Acceso MinIO desde Spark |
+| NumPy | 1.26.4 | Monte Carlo y ML |
+| Pandas | 2.1.4 | Publicación local y agregados |
+| scikit-learn | 1.5.2 | Isolation Forest, particiones y calibración |
+| Delta Lake / delta-spark | 3.2.0 | Transacciones y versiones Silver/Gold |
+| XGBoost | 2.1.2 | Clasificación supervisada de impago |
+| PostgreSQL | 15.19, imagen fijada por digest | Base analítica y metadatos Airflow |
+| psycopg2-binary | 2.9.9 | Conexiones SQL |
+| SQLAlchemy | 1.4.52 | Infraestructura Airflow |
+| MinIO Server | RELEASE.2025-09-07T16-13-09Z, imagen fijada por digest | Objetos, Bronze CSV y capas Delta |
+| MinIO Python SDK | 7.2.20 | Ingesta y resultados de simulación |
+| Streamlit | 1.40.2 | Interfaces personal y operativa |
+| Plotly | 5.24.1 | Gráficas |
+| Groq Python SDK | 0.13.0 | Inferencia y herramientas del agente |
+| httpx | 0.27.2 | Transporte compatible con el SDK |
+| python-dotenv | 1.0.1 | Configuración local |
+| pgAdmin | 9.18, imagen fijada por digest en Compose | Administración SQL |
+| pytest | 8.3.3 | Regresiones |
+| Ruff | 0.8.6, solo CI | Errores críticos de Python |
+| Docker Compose | CLI detectada 5.6.1 | Infraestructura local |
+
+La matriz fija dependencias directas e imágenes. Las dependencias transitivas resueltas por la imagen se capturan con `pip freeze` al validar el entorno. El archivo `requirements.txt` y Dockerfile determinan las versiones ejecutables. Ollama, LangChain y Great Expectations permanecen fuera de la ruta de ejecución. Se usa Groq con herramientas directas y contratos PySpark. Delta Lake sí se ejecuta en Silver y Gold.
+
+La configuración usa Spark 3.5.3 con Java 17 y Python 3.11, dentro de las combinaciones admitidas por la documentación de Spark. Las herramientas del agente siguen el intercambio de mensajes y resultados documentado por Groq. [Spark 3.5.3](https://spark.apache.org/docs/3.5.3/) · [Herramientas Groq](https://console.groq.com/docs/tool-use/local-tool-calling)
+
+## Operación y validación
+
+README contiene comandos de arranque, reejecución y pruebas. `tests/test_monte_carlo.py` cubre reproducibilidad, contabilidad, escenarios adversos y entradas inválidas. `tests/test_gold_model.py` comprueba llaves, relaciones y conciliación. `tests/test_agent.py` comprueba que la evidencia Gold llegue al modelo y que la falta de publicación produzca un error explícito. `tests/test_interfaces.py` comprueba las experiencias personal, login y operación autenticada. La prueba previa de features de anomalías se conserva.
+
+El estado de las validaciones ejecutadas se registra en `docs/VALIDACION.md`. Un archivo con sintaxis correcta requiere además una corrida integral, comprobación de publicación y una consulta real al modelo para acreditar la operación completa.
+
+## Empaquetado Docker de las aplicaciones
+
+La imagen `gemelo-bbva-runtime:2026.11.10-presentacion` incluye el código fuente, DAG, configuración Streamlit, contratos, scripts SQL, pruebas, documentación y CSV públicos. Los servicios de aplicación ejecutan los archivos incorporados en esa imagen. Una actualización de esos archivos requiere reconstruir la imagen y recrear los servicios con Compose.
+
+PostgreSQL, MinIO y pgAdmin conservan sus volúmenes existentes. Los logs y artefactos de modelos usan los volúmenes `pipeline_logs` y `model_artifacts`. Durante la actualización se migraron a ellos los archivos existentes de logs y modelos. La configuración de credenciales se suministra mediante `.env` al crear los contenedores y ese archivo queda excluido de la imagen.
+
+Los dashboards y Airflow incorporan comprobaciones de salud HTTP. Los servicios persistentes tienen política de reinicio automático. Airflow usa un worker web y una tarea pesada simultánea para limitar el consumo de memoria de la instalación. La inicialización sigue siendo una tarea de una sola ejecución. `PUBLIC_HOST` permite generar los enlaces de Airflow con el hostname o IP del equipo Docker. Los puertos externos permanecen configurables en `.env`. README identifica los puertos de la instalación integrada y la carpeta original que atiende en 8501.
+
+La configuración del tema sigue las opciones nativas de Streamlit y la persistencia utiliza volúmenes administrados por Docker. [Tema Streamlit](https://docs.streamlit.io/develop/concepts/configuration/theming) · [Servicios y volúmenes Compose](https://docs.docker.com/reference/compose-file/services/)
+
+## Sincronización de la carpeta original y configuración de cuentas
+
+La carpeta original `Gemelo-Digital-Financiero 23.21.16` se sincronizó con el código de la entrega integrada, incluido `src/dashboard/ui.py` y la vista operativa. Se conservó un respaldo del código y la configuración anteriores en `.backups/`, con acceso restringido y exclusión de Git y Docker. La carpeta original utiliza el proyecto Docker `gemelo-bbva` y su configuración vigente.
+
+Los usuarios de PostgreSQL, MinIO, Groq, operación, pgAdmin y administración de Airflow se suministran mediante `.env`. El propietario del DAG, rol, nombre y apellido de administración también se parametrizan. Las conexiones obligatorias detienen el arranque si faltan sus variables requeridas. El generador completa variables ausentes desde `.env.example` y conserva los secretos ya presentes, respetando los caracteres especiales.
+
+
+## Perfil personal de demostración
+
+La identidad `DEMO_PROFILE_ID` vincula los archivos deterministas `data/demo/transactions.csv`, `cards.csv` y `profile.json`. El generador usa `DEMO_SEED`, moneda MXN de demostración y 12 meses hasta octubre de 2026. No cruza identidades ni monedas de las tres fuentes independientes originales.
+
+El saldo líquido se concilia como `opening_cash + suma(ingresos - gastos)`. Los gastos incluyen la cuota del préstamo y los intereses de tarjeta, descontados una sola vez. El préstamo sigue una amortización mensual con tasa declarada por el generador. La tarjeta concilia compras más intereses menos pagos y conserva un saldo de 6,200. El patrimonio se define como efectivo menos saldo del préstamo y de tarjeta. Es un ejemplo reproducible, sin conexiones bancarias reales.
+
+Los hechos personales publicados tienen grano `(source_run_id, profile_id, period_month)`, y categorías añade `category`. `gold.personal_profiles` contiene el snapshot de identidad y saldos. Hay llaves foráneas y validaciones de cobertura mensual, categorías, importes finitos y saldo de cierre. `serving.*` expone la publicación activa y `serving.history_*` permite fijar una fotografía.
+
+## Delta Lake en MinIO
+
+`src/common/spark.py` configura Spark 3.5.3 con Delta 3.2.0, extensiones, catálogo y JAR incluidos en Docker. Las escrituras Silver válidas y Gold usan Delta, con `_delta_log`, esquema controlado y transacción por tabla. Bronze y cuarentena conservan sus formatos de evidencia. La lectura admite Parquet legado y una escritura puede convertir una ruta anterior a Delta.
+
+La atomicidad Delta es por tabla. La atomicidad de publicación de todos los productos se consigue con una transacción PostgreSQL que inserta los snapshots, comprueba manifiesto y cambia un único puntero activo al final. Los lectores mantienen una fotografía en `REPEATABLE READ`. No se afirma una transacción Delta distribuida entre tablas.
+
+La compatibilidad entre versiones está documentada en [Delta Lake releases](https://docs.delta.io/releases/). Los objetos y logs transaccionales deben respaldarse juntos. No ejecutar VACUUM ni eliminar versiones para la presentación.
+
+## Modelo supervisado de impago
+
+La fuente es [Default of Credit Card Clients, UCI](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients), I-Cheng Yeh, DOI 10.24432/C55S3H, CC BY 4.0. Se conserva el SHA256 del CSV y la procedencia en `configs/credit_default_source.json`. La etiqueta Y representa impago el mes siguiente en una cohorte de Taiwán de 2005.
+
+`credit_default_features` publica 30,000 vectores en Gold Delta. Se usan 20 variables financieras: seis ratios saldo/límite, seis ratios pago/saldo, seis estados de atraso, atraso máximo y cantidad de meses con atraso. Los cocientes se acotan para reducir extremos. No se usan sexo, edad, educación ni estado civil. Las mismas transformaciones se aplican en entrenamiento e inferencia.
+
+XGBoost usa 250 árboles, profundidad 3, learning rate 0.06, subsample y colsample 0.85, lambda 2 y semilla `RISK_SEED`. StratifiedGroupKFold distribuye grupos de vectores idénticos entre cinco particiones. Tres se usan para entrenar, una para calibrar con sigmoide y una para evaluar. Las proporciones aproximadas 60/20/20 varían por tamaños de grupos. El conjunto de prueba no se utiliza en entrenamiento ni calibración. La cohorte carece de tiempo futuro separado, por lo que esta evaluación es interna, fuera de muestra.
+
+La corrida verificada obtuvo AUC 0.7772, Brier 0.1344 y Brier de referencia 0.1749, sobre 5,472 ejemplos de prueba. El gate exige AUC mínimo configurable `RISK_MIN_AUC` y Brier menor que la referencia. Se guardan curva de calibración, splits y versiones. No hay una validación de generalización a México o datos bancarios actuales. Las inferencias sobre Alex son una demostración académica y no determinan elegibilidad crediticia. Los umbrales Bajo <15%, Moderado <30% y Elevado son etiquetas de demostración sin validación comercial.
+
+El modelo y métricas se guardan por corrida en el volumen `model_artifacts`, bucket `models` y Gold `credit_default_model`. Las métricas activas e históricas están disponibles en vistas SQL. El modelo se entrena sobre features Gold de la misma corrida que el perfil y la publicación.
+
+## Asistente personal y simulaciones guardadas
+
+`PersonalFinancialAgent` lee el perfil y hechos personales publicados usando el rol lector. Las preguntas frecuentes se resuelven con herramientas y plantillas que conservan las cifras exactas y una explicación cotidiana. Groq se usa para preguntas abiertas con el contexto del perfil ficticio, últimos seis meses y categorías; nunca recibe claves de infraestructura. El contexto y el historial se acotan. La IA abierta puede cometer errores y se apoya en evidencia verificable.
+
+El motor Monte Carlo es compartido. Para el perfil personal `initial_savings` parte del saldo conciliado, salvo un valor explícito del usuario. `profile_id` se registra en `simulation.runs`, y cada consulta personal filtra esa identidad. Dataset 1 mantiene su modo independiente con `profile_id` nulo y sin asumir una moneda.
+
+La versión `paired-month-bootstrap-v2` admite `one_time_expense`, descontado únicamente al comienzo del primer mes futuro. El resto de los gastos se repite según el historial. Los escenarios no recalculan amortización, liquidación de préstamos, inflación, tasas, vencimientos ni cambios estructurales futuros. Los intereses ya presentes en el historial permanecen dentro del gasto observado. Una compra financiada requiere el pago mensual y el horizonte, no se deduce una tasa.
+
+Los resultados se pueden recuperar por conversación sin modificar Gold. La semilla, horizonte, trayectorias y parámetros efectivos quedan guardados con un `simulation_run_id`. Un reintento de una simulación anterior devuelve los resultados almacenados y conserva su versión histórica, incluso si cambia la implementación del motor.
+
+## Alcance de la entrega académica
+
+La experiencia queda lista para demostrar una identidad ficticia, análisis de portafolios, ingeniería de datos, modelos y operación en Docker. Un servicio bancario real requiere autenticación individual, autorización por cuenta, conexión consentida a fuentes reales, validación externa de modelos y operación de seguridad apropiada. La evaluación académica y los límites de las fuentes se presentan de forma explícita en `docs/ENTREGA.md`.
+
+
+## Glosario y matriz de negocio
+
+| Concepto | Definición en el proyecto | Uso de negocio |
+| --- | --- | --- |
+| Lakehouse | Tablas Delta en objetos, procesamiento Spark y publicación SQL | Conservar historia y soportar analítica e IA sobre las mismas fuentes |
+| Bronze | Bytes originales y metadatos de procedencia por corrida | Reconstruir una entrada y auditar su origen |
+| Silver | Registros válidos, normalizados y con tipos controlados | Evitar que errores de origen se conviertan en cifras de negocio |
+| Gold | Agregados, features y perfiles listos para consulta | Comprender ingresos, gastos, ahorro y riesgo |
+| Feature | Variable derivada para análisis o inferencia | Aplicar la misma definición al entrenar y consultar |
+| Flujo neto | Ingreso menos gastos del periodo | Estimar margen mensual, distinto del saldo disponible |
+| Snapshot | Fotografía vinculada a una publicación | Mantener consistencia entre respuestas y reproducir resultados |
+| Calibración | Ajuste de probabilidades con datos separados del entrenamiento | Evaluar si los riesgos estimados se acercan a frecuencias observadas |
+| Cuarentena | Filas aisladas con motivo de rechazo | Corregir la fuente sin perder evidencia |
+
+Lakehouse permite conservar fuentes y versiones desacoplando almacenamiento y cómputo. Frente a un warehouse SQL único añade manejo de archivos y features para ML, a costa de mantener metadatos Delta y un motor Spark. PostgreSQL aporta un punto de consumo sencillo e indexado. Con estos volúmenes un warehouse bastaría para agregados; se usa Lakehouse para demostrar el patrón de ingeniería del proyecto.
+
+## Infraestructura y seguridad del entorno académico
 
 ```mermaid
-flowchart LR
-    A["Gold<br/>ML Features"] --> B["Pandas"]
-    B --> C["Preparación del dataset"]
-    C --> D["Entrenamiento"]
-    D --> E["Evaluación"]
-    E --> F["Modelo ML"]
-    F --> G["Predicción de riesgo"]
-    G --> H["PostgreSQL"]
+flowchart TB
+    Browser[Navegador del equipo] -->|18501| User[Streamlit usuario]
+    Browser -->|18502| Ops[Streamlit equipo con login]
+    Browser -->|18080| Airflow[Airflow y Spark local 2 cores]
+    Airflow -->|5432 interno| PG[PostgreSQL]
+    Airflow -->|9000 interno S3A| Minio[MinIO]
+    User --> PG
+    Ops --> PG
+    PG --- VPG[(postgres_data)]
+    Minio --- VM[(minio_data)]
+    Airflow --- VL[(pipeline_logs y model_artifacts)]
+    User -->|HTTPS preguntas abiertas autorizadas| Groq[Groq]
 ```
 
-El modelo tendrá como finalidad apoyar el análisis del riesgo financiero del usuario y complementar los indicadores obtenidos mediante el procesamiento de datos.
+Docker Compose proporciona la red interna por servicio. La memoria disponible en Docker Desktop es aproximadamente 3.8 GiB; se ejecuta un job pesado a la vez, Spark local con dos hilos y un worker web Airflow. Los CSV y modelos pequeños pasan a Pandas con límites explícitos de 100,000 filas en los puntos de publicación y entrenamiento. Es una decisión para la demo local, no una prueba de rendimiento a escala bancaria.
 
----
+El perfil es sintético y los portafolios se consumen con identificadores de origen sin identidades reales confirmadas. No se envían filas de datos bancarios privados a un proveedor por defecto. La prueba abierta de Groq de esta entrega se autorizó con el perfil ficticio y agregados. No existe un proceso de anonimización validado para datos de clientes reales; ese uso exige una fase específica. Los secretos se inyectan por entorno, los logs los redactan y el rol de consulta no puede escribir.
 
-## 10. Gemelo Digital Financiero
-
-El Gemelo Digital Financiero será la capa de interacción con el usuario.
-
-El sistema combinará:
-
-1. Información financiera procesada.
-2. KPIs.
-3. Resultados del modelo de Machine Learning.
-4. Simulaciones de decisiones financieras.
-5. Modelo de lenguaje.
-
-Ejemplo conceptual:
-
-```text
-Usuario
-   │
-   ▼
-Streamlit
-   │
-   ├──► KPIs financieros
-   │
-   ├──► Perfil financiero
-   │
-   ├──► Riesgo financiero
-   │
-   └──► Simulación de compra
-             │
-             ▼
-        Ollama / LLM
-             │
-             ▼
-      Recomendación explicada
-```
-
-El modelo de lenguaje no será considerado sustituto del modelo de Machine Learning. El modelo de Machine Learning será responsable de generar resultados predictivos o clasificatorios, mientras que Ollama será utilizado para interpretar dichos resultados y facilitar la interacción mediante lenguaje natural.
-
----
-
-## 11. PostgreSQL
-
-PostgreSQL será utilizado como sistema de almacenamiento relacional para información que requiera consultas estructuradas y acceso frecuente desde la aplicación.
-
-Entre las entidades potenciales se encuentran:
-
-```text
-financial_kpis
-risk_scores
-model_predictions
-pipeline_runs
-data_quality_results
-```
-
-El Data Lake en MinIO conservará los datos procesados, mientras que PostgreSQL funcionará como una capa relacional para resultados y metadatos seleccionados.
-
-# ¿Por qué PostgreSQL? 
-Aunque es un motor OLTP (transaccional), su rendimiento es más que suficiente para servir datos analíticos pre-agregados en un escenario MVP. Aporta madurez, control de accesos, soporte robusto para SQL estándar y conexión nativa inmediata con herramientas como Streamlit.
-
-# ¿ETL o ELT? 
-El proyecto utiliza ETL. La transformación pesada se realiza en memoria con PySpark (Transform) y el resultado final resumido se carga en PostgreSQL (Load).
-
-# ¿Qué datos publicar? 
-Solo datos de negocio pre-calculados, agregaciones, resúmenes de saldos, conteos y perfiles financieros listos para consumo (Capa Gold). No se deben cargar los históricos granulares de la capa Silver.
-
----
-
-## 12. Orquestación
-
-Apache Airflow será responsable de coordinar las diferentes etapas del procesamiento.
-
-Flujo conceptual:
-
-```mermaid
-flowchart TD
-    A["Ingesta"] --> B["Bronze"]
-    B --> C["Transformación"]
-    C --> D["Validación"]
-    D --> E["Silver"]
-    E --> F["Transformación analítica"]
-    F --> G["Gold"]
-    G --> H["KPIs"]
-    G --> I["Machine Learning"]
-    H --> J["Carga PostgreSQL"]
-    I --> J
-```
-
-Las tareas serán organizadas mediante DAGs para permitir ejecuciones reproducibles y facilitar el monitoreo del pipeline.
-
----
-
-## 13. Logs y métricas operativas
-
-Fundamentales para la trazabilidad, auditoría y resolución de incidentes (troubleshooting). Permiten medir tiempos de ejecución y detectar cuellos de botella.
-
-Métricas mínimas:
-
-| Métrica | Descripción |
-|---|---|
-| `run_id` | Identificador único de ejecución |
-| `pipeline_name` | Nombre del pipeline |
-| `start_time` | Hora de inicio |
-| `end_time` | Hora de finalización |
-| `duration_seconds` | Duración |
-| `records_read` | Registros leídos |
-| `records_processed` | Registros procesados |
-| `records_rejected` | Registros rechazados |
-| `records_written` | Registros almacenados |
-| `duplicate_records` | Duplicados detectados |
-| `validation_passed` | Validaciones exitosas |
-| `validation_failed` | Validaciones fallidas |
-| `pipeline_status` | Estado final |
-
-Ejemplo:
-
-```text
-Pipeline: transactions_pipeline
-Run ID: 2026-001
-
-Start: 2026-08-09 22:00:00
-End: 2026-08-09 22:00:12
-Duration: 12 seconds
-
-Records read: 10000
-Records processed: 9980
-Records rejected: 20
-Records written: 9980
-
-Validation passed: 14
-Validation failed: 1
-
-Status: SUCCESS
-```
-
----
-
-## 14. Decisiones arquitectónicas
-
-Las decisiones técnicas se documentarán mediante Architecture Decision Records (ADR).
-
-### ADR-001 — Arquitectura Lakehouse
-
-**Decisión:** utilizar una arquitectura basada en las capas Bronze, Silver y Gold.
-
-**Justificación:** permite separar los datos originales, los datos procesados y los datos preparados para consumo analítico.
-
-**Consecuencia:** se requiere administrar procesos de ingestión y transformación entre las diferentes capas.
-
----
-
-### ADR-002 — MinIO como almacenamiento
-
-**Decisión:** utilizar MinIO como almacenamiento de objetos para el Data Lake.
-
-**Justificación:** permite disponer de un almacenamiento compatible con una arquitectura basada en objetos y puede ejecutarse de manera local mediante Docker.
-
-**Consecuencia:** será necesario administrar buckets y estructuras de almacenamiento.
-
----
-
-### ADR-003 — Apache Airflow para orquestación
-
-**Decisión:** utilizar Apache Airflow para coordinar los pipelines.
-
-**Justificación:** permite definir dependencias, programar ejecuciones y monitorear tareas.
-
-**Consecuencia:** el proyecto incorpora un componente adicional que requiere configuración y mantenimiento.
-
----
-
-### ADR-004 — PySpark y Pandas
-
-**Decisión:** utilizar PySpark y Pandas de acuerdo con las características de cada procesamiento.
-
-**Justificación:** PySpark permite realizar transformaciones estructuradas y Pandas facilita la exploración y preparación de datos.
-
-**Consecuencia:** se deben definir criterios para evitar procesamiento duplicado o innecesario entre ambas herramientas.
-
----
-
-### ADR-005 — Great Expectations
-
-**Decisión:** incorporar Great Expectations para validación de calidad.
-
-**Justificación:** Garantiza la observabilidad y fiabilidad de los datos. Permite definir contratos de datos estrictos antes de que la información contamine la capa Silver, actuando como una barrera de calidad automatizada.
-
-**Consecuencia:** las reglas de calidad deberán mantenerse junto con el código del proyecto.
-
----
-
-### ADR-006 — PostgreSQL
-
-**Decisión:** utilizar PostgreSQL para resultados y metadatos que requieran consultas relacionales.
-
-**Justificación:** permite consultar eficientemente KPIs, resultados de modelos y métricas operativas desde la aplicación.
-
-**Consecuencia:** se deberá mantener sincronización entre los resultados del Data Lake y la información publicada en PostgreSQL.
-
----
-
-### ADR-007 — Ollama
-
-**Decisión:** utilizar Ollama para ejecutar localmente el modelo de lenguaje.
-
-**Justificación:** permite incorporar capacidades de lenguaje natural sin depender directamente de una API externa durante el desarrollo.
-
-**Consecuencia:** el modelo utilizado deberá ser compatible con los recursos computacionales disponibles.
-
----
-
-### ADR-008 — Streamlit
-
-**Decisión:** utilizar Streamlit como interfaz de usuario.
-
-**Justificación:** permite desarrollar rápidamente una interfaz interactiva en Python para visualizar KPIs y permitir consultas sobre el Gemelo Digital.
-
-**Consecuencia:** la aplicación deberá consumir información procesada desde las capas analíticas y/o PostgreSQL.
-
----
-
-## 15. Estructura propuesta del repositorio
-
-```text
-gemelo-financiero/
-│
-├── README.md
-├── arquitectura.md
-├── docker-compose.yml
-├── requirements.txt
-├── .env.example
-├── .gitignore
-│
-├── dags/
-│
-├── src/
-│   ├── ingestion/
-│   ├── transformation/
-│   ├── validation/
-│   ├── analytics/
-│   └── ml/
-│
-├── data/
-│   ├── bronze/
-│   ├── silver/
-│   └── gold/
-│
-├── sql/
-│   ├── staging/
-│   ├── transformations/
-│   └── analytics/
-│
-├── notebooks/
-│   ├── exploration/
-│   └── ml/
-│
-├── tests/
-├── configs/
-├── logs/
-├── models/
-│
-├── streamlit/
-│   └── app.py
-│
-└── docs/
-    ├── architecture/
-    ├── decisions/
-    └── diagrams/
-```
-
----
-
-## 16. Riesgos técnicos
-
-| Riesgo | Impacto | Mitigación |
-|---|---|---|
-| Complejidad del stack | Alto | Implementación incremental |
-| Incompatibilidad entre datasets | Alto | Validación y estandarización en Silver |
-| Fallos de calidad de datos | Alto | Great Expectations |
-| Bajo rendimiento de Spark | Medio | Optimización y uso de Pandas cuando sea suficiente |
-| Consumo elevado de recursos por Ollama | Medio | Selección de modelo acorde al hardware |
-| Fallos en pipelines | Alto | Airflow, logs y reintentos |
-| Inconsistencias entre MinIO y PostgreSQL | Medio | Validaciones de carga y métricas de sincronización |
-
----
-
-## 17. Principios arquitectónicos
-
-La solución seguirá los siguientes principios:
-
-1. **Trazabilidad:** cada dato deberá poder relacionarse con su fuente y ejecución de pipeline.
-2. **Reproducibilidad:** los componentes deberán poder ejecutarse mediante Docker.
-3. **Calidad:** los datos deberán validarse antes de llegar a las capas analíticas.
-4. **Separación de responsabilidades:** almacenamiento, procesamiento, validación, Machine Learning e interfaz tendrán responsabilidades independientes.
-5. **Observabilidad:** los pipelines deberán generar logs y métricas operativas.
-6. **Escalabilidad:** la arquitectura deberá permitir aumentar el volumen de datos sin modificar completamente el diseño.
-7. **Seguridad:** las credenciales y configuraciones sensibles no deberán almacenarse directamente en Git.
-
----
-
-## 18. Gobierno de datos
-
-**Dominios controlados**
-
-El dataset `personal_transactions` contiene campos categóricos cuyo
-contenido presenta inconsistencias de capitalización y espacios en
-blanco. Estas variaciones representan el mismo valor lógico y serán
-normalizadas durante la transformación Bronze → Silver.
-
-**Campo `type`**
-
-Los valores válidos en Silver serán:
-
-- `Income`
-- `Expense`
-
-Las variantes detectadas en Bronze incluyen diferencias de
-mayúsculas/minúsculas y espacios en blanco.
-
-**Campo `category`**
-
-Los valores válidos en Silver serán:
-
-- `Rent`
-- `Travel`
-- `Utilities`
-- `Health & Fitness`
-- `Shopping`
-- `Food & Drink`
-- `Entertainment`
-- `Salary`
-- `Investment`
-- `Other`
-
-Las variantes de capitalización y espacios serán normalizadas antes de
-la validación de calidad.
-
-**Reglas de normalización**
-
-1. Eliminación de espacios iniciales y finales mediante `trim`.
-2. Normalización de capitalización de valores categóricos.
-3. Conversión de `amount` al tipo numérico `double`.
-4. Conversión de `date` al tipo `date`.
-5. Eliminación de registros duplicados.
-6. Validación de valores categóricos contra los dominios permitidos.
-
-**Dataset: credit_card_behavior**
-
-| Nombre original | Nombre Silver | Tipo | Nulo | Descripción |
-|---|---|---|---|---|
-| CUST_ID | cust_id | string | No | Identificador único del cliente |
-| BALANCE | balance | double | No | Saldo actual |
-| BALANCE_FREQUENCY | balance_frequency | double | No | Frecuencia de actualización del saldo |
-| PURCHASES | purchases | double | No | Monto total de compras |
-| ONEOFF_PURCHASES | oneoff_purchases | double | No | Compras de una sola exhibición |
-| INSTALLMENTS_PURCHASES | installments_purchases | double | No | Compras a plazos |
-| CASH_ADVANCE | cash_advance | double | No | Disposiciones de efectivo |
-| PURCHASES_FREQUENCY | purchases_frequency | double | No | Frecuencia de compras |
-| ONEOFF_PURCHASES_FREQUENCY | oneoff_purchases_frequency | double | No | Frecuencia de compras de una sola exhibición |
-| PURCHASES_INSTALLMENTS_FREQUENCY | purchases_installments_frequency | double | No | Frecuencia de compras a plazos |
-| CASH_ADVANCE_FREQUENCY | cash_advance_frequency | double | No | Frecuencia de disposiciones de efectivo |
-| CASH_ADVANCE_TRX | cash_advance_trx | integer | No | Número de disposiciones de efectivo |
-| PURCHASES_TRX | purchases_trx | integer | No | Número de transacciones de compra |
-| CREDIT_LIMIT | credit_limit | double | No | Límite de crédito |
-| PAYMENTS | payments | double | No | Pagos realizados |
-| MINIMUM_PAYMENTS | minimum_payments | double | No | Pago mínimo |
-| PRC_FULL_PAYMENT | prc_full_payment | double | No | Proporción de pagos completos |
-| TENURE | tenure | integer | No | Antigüedad del cliente |
-
-**Reglas de calidad**
-
-1. `cust_id` debe ser único y no nulo.
-2. Los campos monetarios no deben contener valores negativos.
-3. `credit_limit` debe ser mayor que cero.
-4. Los campos de frecuencia deben encontrarse entre 0 y 1.
-5. `tenure` debe representar un número entero positivo.
-
-**Dataset: financial_profile**
-
-| Nombre original | Nombre Silver | Tipo | Nulo | Descripción |
-|---|---|---|---|---|
-| user_id | user_id | string | No | Identificador del usuario |
-| age | age | integer | No | Edad |
-| gender | gender | string | No | Género |
-| education_level | education_level | string | No | Nivel educativo |
-| employment_status | employment_status | string | No | Situación laboral |
-| job_title | job_title | string | No | Puesto o profesión |
-| monthly_income_usd | monthly_income_usd | double | No | Ingreso mensual |
-| monthly_expenses_usd | monthly_expenses_usd | double | No | Gastos mensuales |
-| savings_usd | savings_usd | double | No | Ahorro disponible |
-| has_loan | has_loan | boolean | No | Indicador de préstamo |
-| loan_type | loan_type | string | Sí | Tipo de préstamo |
-| loan_amount_usd | loan_amount_usd | double | Sí | Monto del préstamo |
-| loan_term_months | loan_term_months | integer | Sí | Plazo del préstamo |
-| monthly_emi_usd | monthly_emi_usd | double | Sí | Pago mensual |
-| loan_interest_rate_pct | loan_interest_rate_pct | double | Sí | Tasa de interés |
-| debt_to_income_ratio | debt_to_income_ratio | double | No | Relación deuda-ingreso |
-| credit_score | credit_score | integer | No | Puntuación crediticia |
-| savings_to_income_ratio | savings_to_income_ratio | double | No | Relación ahorro-ingreso |
-| region | region | string | No | Región |
-| record_date | record_date | date | No | Fecha de registro |
-
-**Reglas de calidad**
-
-1. `user_id` debe ser único y no nulo.
-2. `age` debe ser mayor o igual a 18.
-3. `monthly_income_usd` debe ser mayor o igual a cero.
-4. `monthly_expenses_usd` debe ser mayor o igual a cero.
-5. `credit_score` debe encontrarse entre 300 y 850.
-6. `debt_to_income_ratio` debe ser mayor o igual a cero.
-7. `record_date` debe contener una fecha válida.
-8. Si `has_loan` es `true`, los campos relacionados con el préstamo deben contener información válida.
-
-**Convención de nomenclatura**
-
-Todos los nombres de columnas de la capa Silver deberán utilizar
-`snake_case`, es decir, letras minúsculas y guiones bajos como
-separadores.
-
-Ejemplo:
-
-`Transaction Description` → `transaction_description`
-
-`CREDIT_LIMIT` → `credit_limit`
-
-Los datasets utilizarán una nomenclatura asociada a la capa de
-procesamiento:
-
-- `<dataset>_bronze`
-- `<dataset>_silver`
-- `<dataset>_gold`
-
-La capa Bronze conservará el contenido original del dataset, mientras
-que Silver contendrá los datos estandarizados, tipificados, depurados y
-validados.
-
-La capa Gold contendrá posteriormente los datos preparados para el
-cálculo de KPIs, análisis financiero y consumo por las aplicaciones del
-Gemelo Digital Financiero.
+Los puertos publicados son de un entorno local de desarrollo y la instalación no incorpora TLS, SSO ni aislamiento por persona. El despliegue remoto requiere aplicar sus propios controles antes de exponer servicios. La estrategia Git y el workflow CI están documentados en `docs/CONTRIBUIR.md`.

@@ -1,92 +1,127 @@
-version: '3.8'
+name: gemelo-bbva
+
+x-runtime: &runtime
+  image: gemelo-bbva-runtime:2026.11.10-presentacion
+  restart: unless-stopped
+  env_file: .env
+  working_dir: /opt/airflow/project
+  volumes:
+    - pipeline_logs:/opt/airflow/project/logs
+    - model_artifacts:/opt/airflow/project/models
+  environment: &runtime-env
+    POSTGRES_HOST: ${POSTGRES_HOST:?Configura POSTGRES_HOST}
+    POSTGRES_PORT: ${POSTGRES_PORT:?Configura POSTGRES_PORT}
+    MINIO_ENDPOINT: ${MINIO_ENDPOINT:?Configura MINIO_ENDPOINT}
+    PYTHONPATH: /opt/airflow/project
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/project/dags
+    AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/project/logs/airflow
 
 services:
-  airflow:
-    build: .
-    container_name: airflow_gemelo
-    ports:
-      - "8080:8080"
-    environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://admin:admin@postgres:5432/gemelo_db      
-      - AIRFLOW_USER=admin
-      - AIRFLOW_PASSWORD=admin
-      - _AIRFLOW_WWW_USER_USERNAME=admin
-      - _AIRFLOW_WWW_USER_PASSWORD=admin
+  postgres:
+    image: postgres:15@sha256:7e2070cf6ad06fb3cbbd141b1bafbb7fd5bb63e2b6001e6daf34448eb555e4b3
+    env_file: .env
+    restart: unless-stopped
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
-      - ./data:/opt/airflow/data
-      - ./schemas:/opt/airflow/schemas
-      - ./logs:/opt/airflow/logs
-    command: standalone
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PUBLIC_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    env_file: .env
+    restart: unless-stopped
+    command: server /data --console-address :9001
+    ports:
+      - "${MINIO_PUBLIC_PORT:-19100}:9000"
+      - "${MINIO_CONSOLE_PORT:-19101}:9001"
+    volumes:
+      - minio_data:/data
+
+  platform_init:
+    <<: *runtime
+    restart: "no"
+    command: python -m src.analytics.init_platform
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_started
 
-  postgres:
-    image: postgres:15
-    container_name: gemelo_postgres
-    restart: always
+  airflow:
+    <<: *runtime
+    build: .
     environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin
-      - POSTGRES_DB=gemelo_db
+      <<: *runtime-env
+      AIRFLOW__WEBSERVER__BASE_URL: http://${PUBLIC_HOST:-localhost}:${AIRFLOW_PUBLIC_PORT:-18080}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__PARALLELISM: "1"
+      AIRFLOW__WEBSERVER__WORKERS: "1"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?Configura AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Configura AIRFLOW_SECRET_KEY}
+    command: bash scripts/start_airflow.sh
     ports:
-      - "5432:5432"
-    volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - "${AIRFLOW_PUBLIC_PORT:-18080}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gemelo_db}"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: gemelo_pgadmin
-    restart: always
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=santiago@admin.com
-      - PGADMIN_DEFAULT_PASSWORD=admin
-    ports:
-      - "5050:80"
+      start_period: 90s
+      retries: 6
     depends_on:
-      - postgres
-
-  minio:
-    image: minio/minio:latest
-    container_name: gemelo-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-    ports:
-      - "9100:9000"
-      - "9101:9001"
-    volumes:
-      - minio_data:/data
+      platform_init:
+        condition: service_completed_successfully
 
   streamlit_app:
-    image: python:3.11-slim
-    container_name: gemelo_streamlit
-    working_dir: /app
-    volumes:
-      - .:/app
+    <<: *runtime
+    command: ["bash", "-c", "exec streamlit run src/dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true"]
     ports:
-      - "8501:8501"
-    environment:
-      - PYTHONUNBUFFERED=1
-    command: >
-      bash -c "pip install --no-cache-dir -r requirements.txt && 
-              streamlit run src/dashboard/app.py --server.address=0.0.0.0 --server.port=8501"
-    restart: always
-    env_file:
-      - .env
-    
+      - "${STREAMLIT_PUBLIC_PORT:-18501}:8501"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    depends_on:
+      platform_init:
+        condition: service_completed_successfully
+
+  operations:
+    <<: *runtime
+    command: ["bash", "-c", "exec streamlit run src/dashboard/operations.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true"]
+    ports:
+      - "${OPERATIONS_PUBLIC_PORT:-18502}:8501"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    depends_on:
+      platform_init:
+        condition: service_completed_successfully
+
+  pgadmin:
+    image: dpage/pgadmin4@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "${PGADMIN_PUBLIC_PORT:-15050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   minio_data:
+  pgadmin_data:
+  pipeline_logs:
+  model_artifacts:

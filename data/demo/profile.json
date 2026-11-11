@@ -1,0 +1,18 @@
+{
+  "profile_id": "persona_demo",
+  "display_name": "Alex",
+  "currency": "MXN",
+  "as_of_date": "2026-10-31",
+  "data_kind": "synthetic_demo",
+  "seed": 42,
+  "opening_cash": 5000.0,
+  "available_savings": 113022.52,
+  "loan_balance": 39134.06,
+  "monthly_loan_payment": 2500.0,
+  "card_balance": 6200.0,
+  "card_limit": 25000.0,
+  "card_payment_day": 28,
+  "net_worth": 67688.46,
+  "description": "Persona y operaciones ficticias creadas para la demostración académica.",
+  "expense_definition": "Los gastos incluyen la cuota del préstamo y los intereses. Se descuentan una sola vez."
+}

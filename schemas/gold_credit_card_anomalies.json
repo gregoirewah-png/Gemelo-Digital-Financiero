@@ -1,0 +1,161 @@
+{
+  "contract_version": "1.0.0",
+  "layer": "gold",
+  "schema_name": "gold_credit_card_anomalies",
+  "description": "Resultados por cliente de IsolationForest sobre Dataset2 Gold. NO prueba de fraude o mora.",
+  "source": {
+    "layer": "gold",
+    "dataset": "credit_card_balances"
+  },
+  "grain": "Una fila por cust_id y ejecución model_run_id; cada run_id se almacena en una partición separada.",
+  "primary_key": [
+    "cust_id"
+  ],
+  "columns": [
+    {
+      "name": "cust_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Identificador de cliente; no se utiliza en el entrenamiento."
+    },
+    {
+      "name": "balance",
+      "type": "double",
+      "nullable": false,
+      "description": "Valor de Gold usado para comprender las anomalías: balance",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "credit_limit",
+      "type": "double",
+      "nullable": false,
+      "description": "Valor de Gold usado para comprender las anomalías: credit_limit",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "purchases",
+      "type": "double",
+      "nullable": false,
+      "description": "Valor de Gold usado para comprender las anomalías: purchases",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "cash_advance",
+      "type": "double",
+      "nullable": false,
+      "description": "Valor de Gold usado para comprender las anomalías: cash_advance",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "payments",
+      "type": "double",
+      "nullable": false,
+      "description": "Valor de Gold usado para comprender las anomalías: payments",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "purchases_trx",
+      "type": "double",
+      "nullable": false,
+      "description": "Valor de Gold usado para comprender las anomalías: purchases_trx",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "minimum_payments",
+      "type": "double",
+      "nullable": true,
+      "description": "Valor original; permite nulos: minimum_payments",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "prc_full_payment",
+      "type": "double",
+      "nullable": true,
+      "description": "Valor original; permite nulos: prc_full_payment",
+      "checks": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "name": "credit_utilization",
+      "type": "double",
+      "nullable": false,
+      "description": "Razón derivada; se representa como fracción, no porcentaje.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "payment_to_balance",
+      "type": "double",
+      "nullable": true,
+      "description": "Razón derivada; se representa como fracción, no porcentaje.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "minimum_payment_to_balance",
+      "type": "double",
+      "nullable": true,
+      "description": "Razón derivada; se representa como fracción, no porcentaje.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "isolation_score",
+      "type": "double",
+      "nullable": false,
+      "description": "score_samples: valores menores indican más anomalía."
+    },
+    {
+      "name": "anomaly_score",
+      "type": "double",
+      "nullable": false,
+      "description": "-score_samples: valores mayores indican más anomalía. No es probabilidad.",
+      "checks": {
+        "min": 0
+      }
+    },
+    {
+      "name": "decision_score",
+      "type": "double",
+      "nullable": false,
+      "description": "decision_function: valor negativo indica anomalía con umbral actual."
+    },
+    {
+      "name": "is_anomaly",
+      "type": "boolean",
+      "nullable": false,
+      "description": "True si IsolationForest.predict devuelve -1."
+    },
+    {
+      "name": "model_run_id",
+      "type": "string",
+      "nullable": false,
+      "description": "Identificador reproducible de ejecución del modelo."
+    },
+    {
+      "name": "scored_at",
+      "type": "timestamp",
+      "nullable": false,
+      "description": "Momento UTC de puntuación."
+    }
+  ]
+}

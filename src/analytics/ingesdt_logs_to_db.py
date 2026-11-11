@@ -1,75 +1,47 @@
-import os
-import glob
+"""Importa reportes Silver históricos al esquema de observabilidad, sin duplicarlos."""
+import argparse
 import re
-from datetime import datetime
-import psycopg2
+from datetime import datetime, timezone
+from pathlib import Path
 
-def get_db_connection():
-    return psycopg2.connect(
-        dbname="gemelo_db",        # Ajusta el nombre de tu BD si es diferente
-        user="admin",           # Tu usuario de postgres
-        password="admin", # Tu contraseña de postgres
-        host="postgres",    # El nombre del servicio en docker-compose
-        port="5432"
-    )
+from psycopg2.extras import Json
 
-def parse_and_insert_logs():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    log_dir = os.path.join(BASE_DIR, "..", "logs") # Ajusta según la ruta de tu proyecto
-    log_files = glob.glob(os.path.join(log_dir, "*.log"))
-    
-    if not log_files:
-        print("No se encontraron archivos de log físicos.")
-        return
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+from src.common.config import ROOT, db_connect, redact
 
-    for file_path in log_files:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
 
-        # Extraer métricas usando expresiones regulares básicas
-        filename = os.path.basename(file_path)
-        dataset_match = re.search(r"dataset(\d+)", filename, re.IGNORECASE)
-        dataset_name = f"Dataset {dataset_match.group(1)}" if dataset_match else "Desconocido"
-
-        def extract_val(pattern, text, default=0, cast_type=int):
-            match = re.search(pattern, text)
+def parse_and_insert_logs(log_dir=None):
+    for path in sorted(Path(log_dir or ROOT/'logs').glob('reporte_dataset*.log')):
+        content = path.read_text(errors='replace')
+        run_match = re.search(r'Run ID:\s*([^\n]+)',content)
+        dataset_match = re.search(r'dataset(\d+)',path.name,re.I)
+        if not run_match or not dataset_match:
+            continue
+        run_id = run_match.group(1).strip()
+        dataset = 'Dataset' + dataset_match.group(1)
+        patterns = {'records_read':r'Registros leídos.*?:\s*(\d+)',
+                    'duplicates_removed':r'Duplicados eliminados:\s*(\d+)',
+                    'records_quarantined':r'Registros aislados.*?:\s*(\d+)',
+                    'records_written':r'Registros validados.*?:\s*(\d+)',
+                    'rules_evaluated':r'Reglas de calidad evaluadas:\s*(\d+)',
+                    'rules_failed':r'Reglas fallidas:\s*(\d+)'}
+        metrics = {}
+        for name,pattern in patterns.items():
+            match = re.search(pattern,content)
             if match:
-                try:
-                    return cast_type(match.group(1))
-                except ValueError:
-                    return default
-            return default
+                metrics[name] = int(match.group(1))
+        with db_connect() as conn, conn.cursor() as cursor:
+            cursor.execute('INSERT INTO ops.job_runs(run_id,task_id,attempt,dataset,layer,status,started_at,metrics,log_content) '
+                           "VALUES (%s,%s,1,%s,'silver','SUCCESS',%s,%s,%s) ON CONFLICT DO NOTHING",
+                           (run_id,'legacy_silver_'+dataset,dataset,datetime.fromtimestamp(path.stat().st_mtime,tz=timezone.utc),
+                            Json(metrics),redact(content)))
+        print('Reporte importado',path.name)
 
-        run_id_match = re.search(r"Run ID:\s*(.+)", content) 
-        mathrm_run_id = run_id_match.group(1).strip() if run_id_match else "manual_run"
 
-        duracion = extract_val(r"Duración del proceso:\s*([\d\.]+)", content, 0.0, float)
-        leidos = extract_val(r"Registros leídos.*?:\s*(\d+)", content)
-        duplicados = extract_val(r"Duplicados eliminados:\s*(\d+)", content)
-        cuarentena = extract_val(r"Registros aislados.*?:\s*(\d+)", content)
-        validados = extract_val(r"Registros validados.*?:\s*(\d+)", content)
-        evaluadas = extract_val(r"Reglas de calidad evaluadas:\s*(\d+)", content)
-        fallidas = extract_val(r"Reglas fallidas:\s*(\d+)", content)
-
-        # Insertar en PostgreSQL
-        insert_query = """
-            INSERT INTO execution_logs 
-            (dataset_name, run_id, duration_seconds, records_read, duplicates_removed, 
-             records_quarantined, records_validated, expectations_evaluated, expectations_failed, log_content)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(insert_query, (
-            dataset_name, r_run_id if 'r_run_id' in locals() else "manual", duracion, 
-            leidos, duplicados, cuarentena, validados, evaluadas, fallidas, content
-        ))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("¡Logs históricos migrados exitosamente a PostgreSQL!")
-
-if __name__ == "__main__":
-    parse_and_insert_logs()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--log-dir')
+    parse_and_insert_logs(parser.parse_args().log_dir)

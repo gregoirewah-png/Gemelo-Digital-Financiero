@@ -6,14 +6,16 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import psycopg2
 from pyspark.sql import SparkSession, functions as F
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT_DIR))
 from src.validation.validate_gold_contract import validate_gold_contract  # noqa: E402
+from src.common.spark import spark_session, read_lake, write_lake
+from src.common.config import lake_path
+from src.common.observability import record_metrics
 
-LOG_DIR = Path(os.getenv("PIPELINE_LOG_DIR", "/opt/airflow/logs/custom_pipeline_logs"))
+LOG_DIR = Path(os.getenv("PIPELINE_LOG_DIR", str(ROOT_DIR / "logs" / "pipeline")))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     filename=str(LOG_DIR / "silver_to_gold_dataset3.log"),
@@ -29,73 +31,20 @@ if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
 
 
 def get_spark_session():
-    return (
-        SparkSession.builder.appName("SilverToGold_Dataset3_Con_MinIO")
-        .config(
-            "spark.jars.packages",
-            "org.postgresql:postgresql:42.6.0,org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262",
-        )
-        .config("spark.hadoop.fs.s3a.endpoint", os.getenv("S3_ENDPOINT", "http://gemelo-minio:9000"))
-        .config("spark.hadoop.fs.s3a.access.key", os.getenv("MINIO_ACCESS_KEY", "minioadmin"))
-        .config("spark.hadoop.fs.s3a.secret.key", os.getenv("MINIO_SECRET_KEY", "minioadmin123"))
-        .config("spark.hadoop.fs.s3a.path.style.access", "true")
-        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-        .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
-        .config("spark.sql.shuffle.partitions", "2")
-        .config("spark.driver.memory", "1g")
-        .config("spark.hadoop.fs.s3a.connection.timeout", "600000")
-        .config("spark.hadoop.fs.s3a.connection.establish.timeout", "600000")
-        .config("spark.hadoop.fs.s3a.threads.keepalivetime", "60")
-        .config("spark.hadoop.fs.s3a.multipart.purge.age", "86400")
-        .config("spark.sql.ansi.enabled", "false")
-        .getOrCreate()
-    )
-
-def log_execution_to_postgres(run_id, status, records_count):
-    connection = cursor = None
-    try:
-        connection = psycopg2.connect(
-            host=os.getenv("POSTGRES_HOST", "postgres"),
-            database=os.getenv("POSTGRES_DB", "gemelo_db"),
-            user=os.getenv("POSTGRES_USER", "admin"),
-            password=os.getenv("POSTGRES_PASSWORD", "admin"),
-            port=os.getenv("POSTGRES_PORT", "5432"),
-        )
-        cursor = connection.cursor()
-        cursor.execute(
-            """CREATE TABLE IF NOT EXISTS pipeline_execution_logs (
-                id SERIAL PRIMARY KEY, run_id VARCHAR(255), dataset_name VARCHAR(150),
-                status VARCHAR(50), records_processed BIGINT, created_at TIMESTAMP
-            )"""
-        )
-        cursor.execute(
-            """INSERT INTO pipeline_execution_logs
-               (run_id, dataset_name, status, records_processed, created_at)
-               VALUES (%s, %s, %s, %s, %s)""",
-            (run_id, "Financial Profile Gold", status, records_count, datetime.now()),
-        )
-        connection.commit()
-    except Exception:
-        logger.exception("No se pudo registrar la ejecución en PostgreSQL")
-    finally:
-        if cursor:
-            cursor.close()
-        if connection:
-            connection.close()
+    return spark_session("Gold_Dataset3")
 
 
 def process_gold_financial_profile(run_id):
     start = time.time()
     spark = get_spark_session()
-    safe_run_id = run_id.replace("+", "_").replace(":", "_").replace("/", "_").replace(" ", "_")
-    silver_path = "s3a://silver/financial_profile"
-    gold_path = f"s3a://gold/financial_profile/run_id={safe_run_id}"
+    silver_path = lake_path("silver", "financial_profile", run_id)
+    gold_path = lake_path("gold", "financial_profile", run_id)
     contract_path = ROOT_DIR / "schemas/gold/gold_financial_profile.json"
     status = "FAILED"
     records_count = 0
 
     try:
-        df_silver = spark.read.parquet(silver_path)
+        df_silver = read_lake(spark, silver_path)
         required = {
             "user_id", "record_date", "age", "monthly_income_usd", "monthly_expenses_usd",
             "savings_usd", "credit_score", "has_loan", "loan_amount_usd",
@@ -184,7 +133,7 @@ def process_gold_financial_profile(run_id):
         logger.info("Resultado de contrato Gold Dataset3: %s", validation)
 
         records_count = df_gold.count()
-        df_gold.write.mode("overwrite").parquet(gold_path)
+        write_lake(df_gold, gold_path)
         status = "SUCCESS"
         logger.info("Gold Dataset3 escrito en %s (%s registros)", gold_path, records_count)
         return records_count
@@ -192,7 +141,7 @@ def process_gold_financial_profile(run_id):
         logger.exception("Falló la construcción/validación de Gold Dataset3")
         raise
     finally:
-        log_execution_to_postgres(run_id, status, records_count)
+        record_metrics(records_written=records_count, output_status=status)
         logger.info("Dataset3 Gold finalizado: status=%s duración=%ss", status, round(time.time() - start, 2))
         spark.stop()
 

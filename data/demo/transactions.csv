@@ -1,0 +1,133 @@
+profile_id,transaction_id,date,type,category,amount,payment_method
+persona_demo,persona_demo-202511-00,2025-11-01,Ingreso,Sueldo,34167.31,Transferencia
+persona_demo,persona_demo-202511-01,2025-11-05,Gasto,Vivienda,7692.52,Transferencia
+persona_demo,persona_demo-202511-02,2025-11-07,Gasto,Supermercado,4106.53,Tarjeta
+persona_demo,persona_demo-202511-03,2025-11-09,Gasto,Transporte,2172.68,Débito
+persona_demo,persona_demo-202511-04,2025-11-11,Gasto,Servicios,2199.32,Débito
+persona_demo,persona_demo-202511-05,2025-11-13,Gasto,Comida fuera,1760.08,Tarjeta
+persona_demo,persona_demo-202511-06,2025-11-15,Gasto,Entretenimiento,1401.97,Tarjeta
+persona_demo,persona_demo-202511-07,2025-11-17,Gasto,Salud,825.65,Débito
+persona_demo,persona_demo-202511-08,2025-11-19,Gasto,Compras,1378.14,Tarjeta
+persona_demo,persona_demo-202511-09,2025-11-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202511-10,2025-11-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202512-00,2025-12-01,Ingreso,Sueldo,33435.76,Transferencia
+persona_demo,persona_demo-202512-01,2025-12-05,Gasto,Vivienda,8021.68,Transferencia
+persona_demo,persona_demo-202512-02,2025-12-07,Gasto,Supermercado,4304.61,Tarjeta
+persona_demo,persona_demo-202512-03,2025-12-09,Gasto,Transporte,2082.21,Débito
+persona_demo,persona_demo-202512-04,2025-12-11,Gasto,Servicios,1973.51,Débito
+persona_demo,persona_demo-202512-05,2025-12-13,Gasto,Comida fuera,1750.96,Tarjeta
+persona_demo,persona_demo-202512-06,2025-12-15,Gasto,Entretenimiento,1311.68,Tarjeta
+persona_demo,persona_demo-202512-07,2025-12-17,Gasto,Salud,849.68,Débito
+persona_demo,persona_demo-202512-08,2025-12-19,Gasto,Compras,1424.99,Tarjeta
+persona_demo,persona_demo-202512-09,2025-12-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202512-10,2025-12-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202601-00,2026-01-01,Ingreso,Sueldo,34371.32,Transferencia
+persona_demo,persona_demo-202601-01,2026-01-05,Gasto,Vivienda,7661.05,Transferencia
+persona_demo,persona_demo-202601-02,2026-01-07,Gasto,Supermercado,4563.0,Tarjeta
+persona_demo,persona_demo-202601-03,2026-01-09,Gasto,Transporte,2391.14,Débito
+persona_demo,persona_demo-202601-04,2026-01-11,Gasto,Servicios,2032.91,Débito
+persona_demo,persona_demo-202601-05,2026-01-13,Gasto,Comida fuera,1582.86,Tarjeta
+persona_demo,persona_demo-202601-06,2026-01-15,Gasto,Entretenimiento,1418.88,Tarjeta
+persona_demo,persona_demo-202601-07,2026-01-17,Gasto,Salud,870.59,Débito
+persona_demo,persona_demo-202601-08,2026-01-19,Gasto,Compras,1285.97,Tarjeta
+persona_demo,persona_demo-202601-09,2026-01-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202601-10,2026-01-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202602-00,2026-02-01,Ingreso,Sueldo,33516.06,Transferencia
+persona_demo,persona_demo-202602-01,2026-02-05,Gasto,Vivienda,9090.74,Transferencia
+persona_demo,persona_demo-202602-02,2026-02-07,Gasto,Supermercado,4389.2,Tarjeta
+persona_demo,persona_demo-202602-03,2026-02-09,Gasto,Transporte,2441.28,Débito
+persona_demo,persona_demo-202602-04,2026-02-11,Gasto,Servicios,2196.49,Débito
+persona_demo,persona_demo-202602-05,2026-02-13,Gasto,Comida fuera,1712.32,Tarjeta
+persona_demo,persona_demo-202602-06,2026-02-15,Gasto,Entretenimiento,1423.01,Tarjeta
+persona_demo,persona_demo-202602-07,2026-02-17,Gasto,Salud,878.14,Débito
+persona_demo,persona_demo-202602-08,2026-02-19,Gasto,Compras,1414.57,Tarjeta
+persona_demo,persona_demo-202602-09,2026-02-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202602-10,2026-02-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202603-00,2026-03-01,Ingreso,Sueldo,34395.29,Transferencia
+persona_demo,persona_demo-202603-01,2026-03-05,Gasto,Vivienda,8701.48,Transferencia
+persona_demo,persona_demo-202603-02,2026-03-07,Gasto,Supermercado,4611.07,Tarjeta
+persona_demo,persona_demo-202603-03,2026-03-09,Gasto,Transporte,2335.58,Débito
+persona_demo,persona_demo-202603-04,2026-03-11,Gasto,Servicios,2185.92,Débito
+persona_demo,persona_demo-202603-05,2026-03-13,Gasto,Comida fuera,1545.58,Tarjeta
+persona_demo,persona_demo-202603-06,2026-03-15,Gasto,Entretenimiento,1229.25,Tarjeta
+persona_demo,persona_demo-202603-07,2026-03-17,Gasto,Salud,862.09,Débito
+persona_demo,persona_demo-202603-08,2026-03-19,Gasto,Compras,1282.34,Tarjeta
+persona_demo,persona_demo-202603-09,2026-03-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202603-10,2026-03-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202604-00,2026-04-01,Ingreso,Sueldo,33679.35,Transferencia
+persona_demo,persona_demo-202604-01,2026-04-05,Gasto,Vivienda,7821.7,Transferencia
+persona_demo,persona_demo-202604-02,2026-04-07,Gasto,Supermercado,4109.06,Tarjeta
+persona_demo,persona_demo-202604-03,2026-04-09,Gasto,Transporte,2362.41,Débito
+persona_demo,persona_demo-202604-04,2026-04-11,Gasto,Servicios,2043.23,Débito
+persona_demo,persona_demo-202604-05,2026-04-13,Gasto,Comida fuera,1655.86,Tarjeta
+persona_demo,persona_demo-202604-06,2026-04-15,Gasto,Entretenimiento,1224.47,Tarjeta
+persona_demo,persona_demo-202604-07,2026-04-17,Gasto,Salud,858.06,Débito
+persona_demo,persona_demo-202604-08,2026-04-19,Gasto,Compras,1522.26,Tarjeta
+persona_demo,persona_demo-202604-09,2026-04-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202604-10,2026-04-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202605-00,2026-05-01,Ingreso,Sueldo,34177.64,Transferencia
+persona_demo,persona_demo-202605-01,2026-05-05,Gasto,Vivienda,8685.52,Transferencia
+persona_demo,persona_demo-202605-02,2026-05-07,Gasto,Supermercado,4017.18,Tarjeta
+persona_demo,persona_demo-202605-03,2026-05-09,Gasto,Transporte,2405.4,Débito
+persona_demo,persona_demo-202605-04,2026-05-11,Gasto,Servicios,1958.63,Débito
+persona_demo,persona_demo-202605-05,2026-05-13,Gasto,Comida fuera,1659.01,Tarjeta
+persona_demo,persona_demo-202605-06,2026-05-15,Gasto,Entretenimiento,1427.28,Tarjeta
+persona_demo,persona_demo-202605-07,2026-05-17,Gasto,Salud,925.2,Débito
+persona_demo,persona_demo-202605-08,2026-05-19,Gasto,Compras,1415.95,Tarjeta
+persona_demo,persona_demo-202605-09,2026-05-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202605-10,2026-05-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202606-00,2026-06-01,Ingreso,Sueldo,34221.54,Transferencia
+persona_demo,persona_demo-202606-01,2026-06-05,Gasto,Vivienda,9082.85,Transferencia
+persona_demo,persona_demo-202606-02,2026-06-07,Gasto,Supermercado,4537.36,Tarjeta
+persona_demo,persona_demo-202606-03,2026-06-09,Gasto,Transporte,2175.36,Débito
+persona_demo,persona_demo-202606-04,2026-06-11,Gasto,Servicios,1903.48,Débito
+persona_demo,persona_demo-202606-05,2026-06-13,Gasto,Comida fuera,1637.25,Tarjeta
+persona_demo,persona_demo-202606-06,2026-06-15,Gasto,Entretenimiento,1239.61,Tarjeta
+persona_demo,persona_demo-202606-07,2026-06-17,Gasto,Salud,847.98,Débito
+persona_demo,persona_demo-202606-08,2026-06-19,Gasto,Compras,1524.01,Tarjeta
+persona_demo,persona_demo-202606-09,2026-06-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202606-10,2026-06-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202607-00,2026-07-01,Ingreso,Sueldo,34451.64,Transferencia
+persona_demo,persona_demo-202607-01,2026-07-05,Gasto,Vivienda,8184.95,Transferencia
+persona_demo,persona_demo-202607-02,2026-07-07,Gasto,Supermercado,4433.68,Tarjeta
+persona_demo,persona_demo-202607-03,2026-07-09,Gasto,Transporte,2251.99,Débito
+persona_demo,persona_demo-202607-04,2026-07-11,Gasto,Servicios,2274.11,Débito
+persona_demo,persona_demo-202607-05,2026-07-13,Gasto,Comida fuera,1686.01,Tarjeta
+persona_demo,persona_demo-202607-06,2026-07-15,Gasto,Entretenimiento,1238.87,Tarjeta
+persona_demo,persona_demo-202607-07,2026-07-17,Gasto,Salud,854.39,Débito
+persona_demo,persona_demo-202607-08,2026-07-19,Gasto,Compras,1417.18,Tarjeta
+persona_demo,persona_demo-202607-09,2026-07-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202607-10,2026-07-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202608-00,2026-08-01,Ingreso,Sueldo,33715.29,Transferencia
+persona_demo,persona_demo-202608-01,2026-08-05,Gasto,Vivienda,8643.8,Transferencia
+persona_demo,persona_demo-202608-02,2026-08-07,Gasto,Supermercado,4642.13,Tarjeta
+persona_demo,persona_demo-202608-03,2026-08-09,Gasto,Transporte,2253.72,Débito
+persona_demo,persona_demo-202608-04,2026-08-11,Gasto,Servicios,1982.11,Débito
+persona_demo,persona_demo-202608-05,2026-08-13,Gasto,Comida fuera,1869.16,Tarjeta
+persona_demo,persona_demo-202608-06,2026-08-15,Gasto,Entretenimiento,1302.48,Tarjeta
+persona_demo,persona_demo-202608-07,2026-08-17,Gasto,Salud,826.36,Débito
+persona_demo,persona_demo-202608-08,2026-08-19,Gasto,Compras,1273.19,Tarjeta
+persona_demo,persona_demo-202608-09,2026-08-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202608-10,2026-08-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202609-00,2026-09-01,Ingreso,Sueldo,33531.58,Transferencia
+persona_demo,persona_demo-202609-01,2026-09-05,Gasto,Vivienda,8716.66,Transferencia
+persona_demo,persona_demo-202609-02,2026-09-07,Gasto,Supermercado,4551.19,Tarjeta
+persona_demo,persona_demo-202609-03,2026-09-09,Gasto,Transporte,2264.19,Débito
+persona_demo,persona_demo-202609-04,2026-09-11,Gasto,Servicios,1916.68,Débito
+persona_demo,persona_demo-202609-05,2026-09-13,Gasto,Comida fuera,1659.75,Tarjeta
+persona_demo,persona_demo-202609-06,2026-09-15,Gasto,Entretenimiento,1428.99,Tarjeta
+persona_demo,persona_demo-202609-07,2026-09-17,Gasto,Salud,905.24,Débito
+persona_demo,persona_demo-202609-08,2026-09-19,Gasto,Compras,1531.9,Tarjeta
+persona_demo,persona_demo-202609-09,2026-09-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202609-10,2026-09-23,Gasto,Intereses de tarjeta,144.67,Débito
+persona_demo,persona_demo-202610-00,2026-10-01,Ingreso,Sueldo,34432.94,Transferencia
+persona_demo,persona_demo-202610-01,2026-10-05,Gasto,Vivienda,7669.52,Transferencia
+persona_demo,persona_demo-202610-02,2026-10-07,Gasto,Supermercado,4489.82,Tarjeta
+persona_demo,persona_demo-202610-03,2026-10-09,Gasto,Transporte,2383.59,Débito
+persona_demo,persona_demo-202610-04,2026-10-11,Gasto,Servicios,2115.53,Débito
+persona_demo,persona_demo-202610-05,2026-10-13,Gasto,Comida fuera,1620.72,Tarjeta
+persona_demo,persona_demo-202610-06,2026-10-15,Gasto,Entretenimiento,1336.65,Tarjeta
+persona_demo,persona_demo-202610-07,2026-10-17,Gasto,Salud,830.08,Débito
+persona_demo,persona_demo-202610-08,2026-10-19,Gasto,Compras,1381.73,Tarjeta
+persona_demo,persona_demo-202610-09,2026-10-21,Gasto,Pago de préstamo,2500.0,Transferencia
+persona_demo,persona_demo-202610-10,2026-10-23,Gasto,Intereses de tarjeta,144.67,Débito
