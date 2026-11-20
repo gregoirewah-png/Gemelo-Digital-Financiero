@@ -104,7 +104,7 @@ El modelo utiliza `gold.monthly_cashflow` de una publicación explícita o de la
 
 ### Saldo inicial
 
-`initial_savings` es el saldo líquido disponible al comienzo del primer mes proyectado, en la misma unidad monetaria de Dataset 1. Lo proporciona el usuario por chat o el operador en el formulario. El DAG usa `MC_INITIAL_SAVINGS`, cuyo valor inicial es cero y representa una hipótesis de arranque. El agente solicita el saldo si el usuario aún no lo proporcionó. Los ahorros de Dataset 3 y la suma histórica del flujo no se usan como saldo inicial porque pertenecen a conceptos o poblaciones diferentes.
+`initial_savings` es el saldo líquido disponible al comienzo del primer mes proyectado, en la misma unidad monetaria de Dataset 1. Lo proporciona el usuario por chat o el operador en la configuración del DAG. El DAG usa `MC_INITIAL_SAVINGS`, cuyo valor inicial es cero y representa una hipótesis de arranque. El agente solicita el saldo si el usuario aún no lo proporcionó. Los ahorros de Dataset 3 y la suma histórica del flujo no se usan como saldo inicial porque pertenecen a conceptos o poblaciones diferentes.
 
 ### Muestreo y ecuación
 
@@ -126,7 +126,7 @@ Para un escenario con cambio de ingreso `a`, cambio de gasto `b` y gasto mensual
 
 ### Parámetros y escenarios
 
-Los valores iniciales son 5,000 trayectorias por escenario, horizonte de 12 meses y semilla 42. El usuario puede ajustarlos por conversación. El formulario del equipo permite ajustar saldo inicial, horizonte, trayectorias, semilla, cambio de gastos y gasto recurrente adicional. El DAG independiente acepta la configuración completa en JSON.
+Los valores iniciales son 5,000 trayectorias por escenario, horizonte de 12 meses y semilla 42. El usuario puede ajustarlos por conversación. El DAG permite ajustar saldo inicial, horizonte, trayectorias, semilla, cambio de gastos y gasto recurrente adicional. El DAG independiente acepta la configuración completa en JSON.
 
 Se permiten de 100 a 50,000 trayectorias, de 1 a 60 meses y hasta cinco escenarios. Los escenarios iniciales son base, gastos +10% e ingresos -10%. Los cambios porcentuales aceptan valores entre -100% y +200%. Los parámetros usan puntos porcentuales, por lo que 10 representa 10%. Las etiquetas con cambios explícitos, como Gastos +10%, deben coincidir con su parámetro y se rechazan si difieren. Se limita el gasto adicional a un valor finito entre cero y 1e9 por mes.
 
@@ -154,9 +154,11 @@ La aplicación usa permisos de escritura para publicar simulaciones a través de
 
 La interfaz personal muestra un resumen pasivo del último mes y del ahorro disponible. La interacción se realiza mediante chat y cuatro preguntas sugeridas. El perfil Alex es ficticio y sus fuentes comparten una identidad común. Las respuestas cotidianas evitan términos de infraestructura y muestran gráficos cuando ayudan a entender gastos o escenarios. Los errores de la respuesta abierta se comunican con una alternativa local.
 
-La aplicación de operación requiere las credenciales `OPERATIONS_USER` y `OPERATIONS_PASSWORD` y contiene seis espacios. Perfil personal muestra la identidad conciliada y Modelo de impago presenta AUC, Brier y calibración. Los otros cuatro espacios son los siguientes. El panorama financiero muestra ingresos, flujo, composición del gasto y segmentos. Calidad y operación muestra estados, duración, volúmenes y rechazo ponderado. El detalle técnico permite examinar métricas, errores y logs por intento, además del manifiesto dimensional. Escenarios permite recalcular y examinar bandas y probabilidades.
+Hay tres aplicaciones separadas. **Ejecutiva**, puerto 18502 y credenciales `EXECUTIVE_*`, responde qué está pasando y qué significa para el negocio: tendencias de ingresos y gastos, señales explicadas, segmentos y resultados de modelos. No muestra logs, JSON ni controles de infraestructura. Fija una publicación SQL en una transacción de lectura repetible; los escenarios se filtran por esa misma publicación.
 
-Ambas aplicaciones usan el tema declarado en `.streamlit/config.toml`, con fondo claro, texto azul oscuro y jerarquía de tarjetas. El CSS comparte las variables de color de Streamlit para que los componentes mantengan contraste si el navegador selecciona otro tema. Se publican en puertos distintos. La vista operativa muestra la versión de la imagen instalada.
+**Data Engineering**, puerto 18503 y credenciales `OPERATIONS_*`, responde qué ocurrió con los datos y qué falló: cuatro pestañas de ejecuciones/calidad, fallos/logs, publicaciones/bases y conocimiento RAG. Muestra el último intento por tarea en el resumen y conserva todos los intentos en el detalle. No mezcla decisiones del negocio con trazas técnicas.
+
+Las tres usan el tema claro de `.streamlit/config.toml` con texto oscuro y superficies contrastantes. La experiencia personal conserva el chat como interacción principal y adapta tarjetas, botones de 48 px, texto de entrada de 16 px y márgenes de área segura a pantallas de iPhone. El servicio público adicional ejecuta exclusivamente `app.py` y exige una clave antes de consultar Gold.
 
 ## Airflow, logs y tolerancia a fallos
 
@@ -185,7 +187,7 @@ El rol lector es distinto del usuario de administración. La inicialización cre
 | AWS Java SDK bundle | 1.12.262 | Acceso MinIO desde Spark |
 | NumPy | 1.26.4 | Monte Carlo y ML |
 | Pandas | 2.1.4 | Publicación local y agregados |
-| scikit-learn | 1.5.2 | Isolation Forest, particiones y calibración |
+| scikit-learn | 1.5.2 | Isolation Forest, particiones, calibración y recuperación TF-IDF |
 | Delta Lake / delta-spark | 3.2.0 | Transacciones y versiones Silver/Gold |
 | XGBoost | 2.1.2 | Clasificación supervisada de impago |
 | PostgreSQL | 15.19, imagen fijada por digest | Base analítica y metadatos Airflow |
@@ -193,7 +195,7 @@ El rol lector es distinto del usuario de administración. La inicialización cre
 | SQLAlchemy | 1.4.52 | Infraestructura Airflow |
 | MinIO Server | RELEASE.2025-09-07T16-13-09Z, imagen fijada por digest | Objetos, Bronze CSV y capas Delta |
 | MinIO Python SDK | 7.2.20 | Ingesta y resultados de simulación |
-| Streamlit | 1.40.2 | Interfaces personal y operativa |
+| Streamlit | 1.40.2 | Interfaces personal, ejecutiva y técnica |
 | Plotly | 5.24.1 | Gráficas |
 | Groq Python SDK | 0.13.0 | Inferencia y herramientas del agente |
 | httpx | 0.27.2 | Transporte compatible con el SDK |
@@ -201,6 +203,7 @@ El rol lector es distinto del usuario de administración. La inicialización cre
 | pgAdmin | 9.18, imagen fijada por digest en Compose | Administración SQL |
 | pytest | 8.3.3 | Regresiones |
 | Ruff | 0.8.6, solo CI | Errores críticos de Python |
+| Cloudflared | 2026.11.1, digest fijado en Compose | Túnel HTTPS temporal solo para usuario |
 | Docker Compose | CLI detectada 5.6.1 | Infraestructura local |
 
 La matriz fija dependencias directas e imágenes. Las dependencias transitivas resueltas por la imagen se capturan con `pip freeze` al validar el entorno. El archivo `requirements.txt` y Dockerfile determinan las versiones ejecutables. Ollama, LangChain y Great Expectations permanecen fuera de la ruta de ejecución. Se usa Groq con herramientas directas y contratos PySpark. Delta Lake sí se ejecuta en Silver y Gold.
@@ -215,11 +218,11 @@ El estado de las validaciones ejecutadas se registra en `docs/VALIDACION.md`. Un
 
 ## Empaquetado Docker de las aplicaciones
 
-La imagen `gemelo-bbva-runtime:2026.11.10-presentacion` incluye el código fuente, DAG, configuración Streamlit, contratos, scripts SQL, pruebas, documentación y CSV públicos. Los servicios de aplicación ejecutan los archivos incorporados en esa imagen. Una actualización de esos archivos requiere reconstruir la imagen y recrear los servicios con Compose.
+La imagen `gemelo-bbva-runtime:2026.11.19-movil-rag` incluye el código fuente, DAG, configuración Streamlit, contratos, scripts SQL, pruebas, documentación y CSV públicos. Los servicios de aplicación ejecutan los archivos incorporados en esa imagen. Una actualización de esos archivos requiere reconstruir la imagen y recrear los servicios con Compose.
 
 PostgreSQL, MinIO y pgAdmin conservan sus volúmenes existentes. Los logs y artefactos de modelos usan los volúmenes `pipeline_logs` y `model_artifacts`. Durante la actualización se migraron a ellos los archivos existentes de logs y modelos. La configuración de credenciales se suministra mediante `.env` al crear los contenedores y ese archivo queda excluido de la imagen.
 
-Los dashboards y Airflow incorporan comprobaciones de salud HTTP. Los servicios persistentes tienen política de reinicio automático. Airflow usa un worker web y una tarea pesada simultánea para limitar el consumo de memoria de la instalación. La inicialización sigue siendo una tarea de una sola ejecución. `PUBLIC_HOST` permite generar los enlaces de Airflow con el hostname o IP del equipo Docker. Los puertos externos permanecen configurables en `.env`. README identifica los puertos de la instalación integrada y la carpeta original que atiende en 8501.
+Los dashboards y Airflow incorporan comprobaciones de salud HTTP. Los servicios persistentes tienen política de reinicio automático. Airflow usa un worker web y una tarea pesada simultánea para limitar el consumo de memoria de la instalación. La inicialización sigue siendo una tarea de una sola ejecución. `PUBLIC_HOST` permite generar los enlaces de Airflow con el hostname o IP del equipo Docker. Los puertos externos permanecen configurables en `.env`. README identifica los puertos 18501, 18502 y 18503 de la instalación integrada.
 
 La configuración del tema sigue las opciones nativas de Streamlit y la persistencia utiliza volúmenes administrados por Docker. [Tema Streamlit](https://docs.streamlit.io/develop/concepts/configuration/theming) · [Servicios y volúmenes Compose](https://docs.docker.com/reference/compose-file/services/)
 
@@ -294,7 +297,12 @@ Lakehouse permite conservar fuentes y versiones desacoplando almacenamiento y c�
 ```mermaid
 flowchart TB
     Browser[Navegador del equipo] -->|18501| User[Streamlit usuario]
-    Browser -->|18502| Ops[Streamlit equipo con login]
+    Browser -->|18502| Exec[Streamlit ejecutivo con login]
+    Browser -->|18503| Ops[Streamlit Data Engineering con login]
+    Phone[iPhone Safari] -->|HTTPS| Tunnel[Cloudflare Quick Tunnel]
+    Tunnel --> Mobile[Streamlit solo usuario con clave]
+    Mobile --> PG
+    Exec --> PG
     Browser -->|18080| Airflow[Airflow y Spark local 2 cores]
     Airflow -->|5432 interno| PG[PostgreSQL]
     Airflow -->|9000 interno S3A| Minio[MinIO]
@@ -310,4 +318,40 @@ Docker Compose proporciona la red interna por servicio. La memoria disponible en
 
 El perfil es sintético y los portafolios se consumen con identificadores de origen sin identidades reales confirmadas. No se envían filas de datos bancarios privados a un proveedor por defecto. La prueba abierta de Groq de esta entrega se autorizó con el perfil ficticio y agregados. No existe un proceso de anonimización validado para datos de clientes reales; ese uso exige una fase específica. Los secretos se inyectan por entorno, los logs los redactan y el rol de consulta no puede escribir.
 
-Los puertos publicados son de un entorno local de desarrollo y la instalación no incorpora TLS, SSO ni aislamiento por persona. El despliegue remoto requiere aplicar sus propios controles antes de exponer servicios. La estrategia Git y el workflow CI están documentados en `docs/CONTRIBUIR.md`.
+Los puertos administrativos se enlazan a 127.0.0.1; solo el chat local se publica también en la red doméstica. El acceso móvil usa HTTPS de Cloudflare y una clave de demo en la aplicación. No incorpora SSO ni aislamiento entre personas reales; el único perfil servido es ficticio. La estrategia Git y el workflow CI están documentados en `docs/CONTRIBUIR.md`.
+
+## Base analítica adicional de Isolation Forest
+
+La aclaración del alcance se refiere a **Isolation Forest**, no a Random Forest. La fuente original sigue siendo Dataset 2. El producto derivado ya existente en Gold Delta `credit_card_anomalies/run_id=<corrida>` ahora tiene una tabla física de consulta independiente `gold.credit_card_anomalies`, una vista activa `serving.credit_card_anomalies` y una histórica `serving.history_credit_card_anomalies`. La clave `(source_run_id, cust_id)` referencia a `gold.credit_cards`. La publicación SQL inserta ambas dentro de la misma transacción y solo después activa la corrida.
+
+La base incluye todos los clientes válidos de cada publicación: 8,941 en la fuente validada, de los cuales 179 se marcaron con contaminación 0.02. No se restringe la base a las alertas. Conserva variables originales, tres ratios, scores, bandera y JSON de features. `credit_utilization = balance/credit_limit` es una fracción, distinta del porcentaje ejecutivo. `payment_to_balance` y `minimum_payment_to_balance` usan saldo positivo; con saldo cero permanecen ausentes antes de imputar. Se aplica log1p a las variables sesgadas y mediana con indicadores de ausencia para entrenar 200 árboles con semilla 42.
+
+`isolation_score = score_samples` disminuye cuando aumenta la atipicidad. `anomaly_score = -score_samples` aumenta con la atipicidad. `decision_score = score_samples - offset_`, y un valor negativo marca un atípico. Ninguno es una probabilidad de fraude o impago. `model_run_id`, `scored_at`, la versión Delta y el manifiesto conservan la procedencia. La migración de publicaciones antiguas copia únicamente la evidencia existente; un score o fecha que no se guardó permanece NULL. El catálogo `configs/data_catalog.json` define columnas, grano, relaciones y límites.
+
+No se entrena Random Forest. XGBoost usa una fuente pública etiquetada UCI distinta. No se unen las identidades de estas cohortes con Alex ni se convierten alertas no supervisadas en etiquetas de incumplimiento.
+
+## RAG viable: recuperación local de conocimiento curado
+
+La generación aumentada por recuperación combina contexto personal publicado y guías educativas pertinentes. Se implementa sin nueva infraestructura de embeddings: TF-IDF de palabras y pares, normalización de acentos, stopwords españolas y similitud coseno, con scikit-learn 1.5.2 ya incluido. Es suficiente para ocho documentos breves; no equivale a una búsqueda semántica general. Se limita a cuatro resultados como máximo, uno por documento, con umbral configurable (`RAG_TOP_K`, `RAG_MIN_SCORE`) y posibilidad de desactivarlo (`RAG_ENABLED`). Sin coincidencias no se adjuntan referencias.
+
+`knowledge/catalog.json` declara fuente, editor y fecha de revisión. El corpus reúne presupuesto, emergencia, pago mínimo, CAT, fechas de tarjeta y reglas internas sobre flujos, simulaciones y modelos. Las fuentes externas son oficiales de CONDUSEF, gob.mx y Banco de México. Los textos son resúmenes propios. `knowledge_store.py` valida rutas dentro del corpus y los dominios permitidos; no admite cargas arbitrarias ni navega por internet al responder.
+
+Flujo: archivos Markdown → fragmentos por sección → hash SHA256 → `knowledge.corpora`, `knowledge.documents`, `knowledge.chunks` → puntero `knowledge.active_corpus`. `platform_init` publica idempotentemente el corpus, bajo un bloqueo transaccional; no añade tareas al DAG de 19 pasos ni altera Gold. El lector solo recibe permisos SELECT. Cambiar contenido o metadatos genera otra versión; conserva las anteriores. El índice de recuperación en memoria se reutiliza mientras la versión sea la misma. Si la lectura SQL falla, se usa la copia curada incorporada en la imagen y se conserva su versión real en la evidencia.
+
+`PersonalFinancialAgent` consulta primero el perfil Gold y conserva la publicación de origen. Las preguntas de definición pasan al generador con los fragmentos como referencias, separados de las instrucciones y cifras verificadas. El prompt prohíbe sustituir cifras, obedecer instrucciones de los documentos e inventar fuentes. La interfaz construye las referencias desde el catálogo, no desde enlaces inventados por el modelo. Sin Groq se muestra un fragmento pertinente, su fuente y un aviso explícito. Si una respuesta recuperada introduce porcentajes que no aparecen en la pregunta, referencias o campos porcentuales del perfil, se reemplaza por la guía curada; este control reduce ejemplos de tasas inventadas, pero no verifica todas las afirmaciones del modelo. Las preguntas cotidianas de cifras y las simulaciones siguen usando cálculos verificados.
+
+Un corpus pequeño puede omitir conceptos o no recuperar sinónimos. Las fuentes deben revisarse al actualizar la entrega. No es una garantía de corrección del LLM ni una base de productos bancarios o asesoramiento individual. [TF-IDF oficial](https://scikit-learn.org/1.5/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html).
+
+## Acceso móvil desde otra ciudad
+
+El perfil Compose `mobile` incorpora `mobile_user`, que ejecuta solo la vista de usuario, y `mobile_tunnel`, con Cloudflared 2026.11.1 fijado por digest. La ruta externa apunta únicamente a `http://mobile_user:8501`; no publica PostgreSQL, Airflow, MinIO ni las vistas internas. `DEMO_ACCESS_CODE` se carga desde `.env` y se compara antes de leer el perfil. La clave no viaja en la URL. Hay espera progresiva por intentos fallidos por sesión y límite de turnos de demo; no son autenticación bancaria ni una cuota global antifraude.
+
+`python3 scripts/mobile_demo.py start` obtiene el hostname temporal, configura el origen permitido de Streamlit y conserva CORS/XSRF activos. Solo recrea la aplicación móvil al adaptar el origen; mantiene el túnel para no cambiar su dirección. Guarda estado no versionado en `.mobile-demo/`. En macOS inicia su propio `caffeinate -i -s` y `stop` detiene únicamente ese proceso y los dos servicios móviles.
+
+La Mac permanece despierta, en corriente, con tapa abierta e internet. Apagar la pantalla es compatible; suspender el sistema impide servir Docker. Quick Tunnel no exige cuenta ni dominio, entrega un hostname aleatorio y no ofrece SLA; al reiniciarse puede cambiar la URL. Una caída eléctrica o de internet interrumpe la demo. Antes de presentar se prueba desde datos móviles y se conservan capturas reales como respaldo. [Quick Tunnels y límites](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
+
+## Higiene del repositorio
+
+Se versionan código, SQL, contratos, pruebas, corpus, documentación y fuentes públicas de prueba con licencia identificada. Se excluyen secretos y `.env.*` salvo `.env.example`, `.backups`, `.mobile-demo`, entornos, cachés, logs, modelos, volúmenes y capas generadas. La plantilla deja vacíos los secretos; los usuarios de servicio son configurables. La auditoría `scripts/audit_repo.py` inspecciona el índice y se ejecuta en CI.
+
+Los archivos de ejecución que estaban versionados se retiran solo del índice con `git rm --cached`; se conservan los archivos físicos y los volúmenes Docker. Esta limpieza no elimina los objetos presentes en commits anteriores, no reescribe la historia ni publica cambios remotos. Los cambios se dejan disponibles para revisión y commit del propietario.

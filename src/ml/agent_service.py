@@ -49,8 +49,8 @@ def query_gold(dataset, view='summary', customer_id=None, date_from=None, date_t
             query='SELECT cust_id,features FROM serving.credit_cards WHERE cust_id=%s'
             params=[customer_id]
         elif view=='anomalies':
-            query=('SELECT cust_id,anomaly_score,credit_utilization_pct,balance,credit_limit '
-                   'FROM serving.credit_cards WHERE is_anomaly ORDER BY anomaly_score DESC LIMIT 20')
+            query=('SELECT cust_id,anomaly_score,isolation_score,decision_score,credit_utilization,model_run_id,scored_at '
+                   'FROM serving.credit_card_anomalies WHERE is_anomaly ORDER BY anomaly_score DESC LIMIT 20')
         else:
             view='segments'
             query=('SELECT cluster,COUNT(*) AS customers,AVG(credit_utilization_pct) AS mean_utilization_pct,'
@@ -106,7 +106,7 @@ def query_gold(dataset, view='summary', customer_id=None, date_from=None, date_t
         if not publication:
             raise ValueError('No hay una publicación disponible. Revisa la tarea publish.')
         publication['published_at']=publication['published_at'].astimezone(ZoneInfo(os.getenv('APP_TIMEZONE','America/Mazatlan')))
-        tables=['monthly_cashflow','category_spending','credit_cards','financial_profiles','credit_default_models',
+        tables=['monthly_cashflow','category_spending','credit_cards','credit_card_anomalies','financial_profiles','credit_default_models',
                 'personal_profiles','personal_monthly_cashflow','personal_category_spending','personal_card_history']
         for table in tables:
             query=query.replace('FROM serving.'+table,'FROM (SELECT * FROM serving.history_'+table+' WHERE source_run_id=%s) scoped')

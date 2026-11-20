@@ -1,5 +1,8 @@
 .git
 .env
+.env.*
+!.env.example
+.mobile-demo
 .venv
 postgres_data
 logs

@@ -15,6 +15,7 @@ WORKDIR /opt/airflow/project
 COPY --chown=airflow:root src ./src
 COPY --chown=airflow:root dags ./dags
 COPY --chown=airflow:root configs ./configs
+COPY --chown=airflow:root knowledge ./knowledge
 COPY --chown=airflow:root schemas ./schemas
 COPY --chown=airflow:root sql ./sql
 COPY --chown=airflow:root scripts ./scripts
@@ -28,6 +29,6 @@ COPY --chown=airflow:root ["README.md", "Documento de Arquitectura.md", ".env.ex
 USER root
 RUN mkdir -p logs models && chown airflow:root . logs models && chmod -R g+rwX logs models
 USER airflow
-ENV GEMELO_VERSION=2026.11.10-presentacion
+ENV GEMELO_VERSION=2026.11.19-movil-rag
 LABEL org.opencontainers.image.title="Gemelo Digital Financiero" \
-      org.opencontainers.image.version="2026.11.10-presentacion"
+      org.opencontainers.image.version="2026.11.19-movil-rag"

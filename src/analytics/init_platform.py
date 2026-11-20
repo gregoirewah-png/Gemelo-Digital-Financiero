@@ -15,9 +15,9 @@ def initialize():
         if cursor.fetchone() is None:
             cursor.execute(sql.SQL("CREATE ROLE {} LOGIN").format(sql.Identifier(role)))
         cursor.execute(sql.SQL("ALTER ROLE {} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %s").format(sql.Identifier(role)), (required("GOLD_READER_PASSWORD"),))
-        cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA serving, simulation TO {}").format(sql.Identifier(role)))
-        cursor.execute(sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA serving, simulation TO {}").format(sql.Identifier(role)))
-        cursor.execute(sql.SQL("ALTER DEFAULT PRIVILEGES IN SCHEMA serving, simulation GRANT SELECT ON TABLES TO {}").format(sql.Identifier(role)))
+        cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA serving, simulation, knowledge TO {}").format(sql.Identifier(role)))
+        cursor.execute(sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA serving, simulation, knowledge TO {}").format(sql.Identifier(role)))
+        cursor.execute(sql.SQL("ALTER DEFAULT PRIVILEGES IN SCHEMA serving, simulation, knowledge GRANT SELECT ON TABLES TO {}").format(sql.Identifier(role)))
     endpoint = required("MINIO_ENDPOINT")
     client = Minio(endpoint.removeprefix("https://").removeprefix("http://"),
                    access_key=required("MINIO_ROOT_USER"), secret_key=required("MINIO_ROOT_PASSWORD"),
@@ -25,7 +25,9 @@ def initialize():
     for bucket in ("bronze", "silver", "gold", "quarantine", "simulations", "models"):
         if not client.bucket_exists(bucket):
             client.make_bucket(bucket)
-    print("Esquemas, rol lector y buckets preparados")
+    from src.analytics.knowledge_store import publish_knowledge
+    corpus=publish_knowledge()
+    print("Esquemas, rol lector y buckets preparados. Conocimiento:",corpus)
 
 
 if __name__ == "__main__":

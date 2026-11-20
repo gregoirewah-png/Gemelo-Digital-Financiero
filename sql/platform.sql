@@ -101,3 +101,94 @@ CREATE OR REPLACE VIEW serving.history_monthly_cashflow AS SELECT * FROM gold.mo
 CREATE OR REPLACE VIEW serving.history_category_spending AS SELECT * FROM gold.category_spending;
 CREATE OR REPLACE VIEW serving.history_credit_cards AS SELECT * FROM gold.credit_cards;
 CREATE OR REPLACE VIEW serving.history_financial_profiles AS SELECT * FROM gold.financial_profiles;
+
+CREATE TABLE IF NOT EXISTS gold.personal_profiles (
+    source_run_id text NOT NULL REFERENCES gold.publications(run_id),
+    profile_id text NOT NULL, payload jsonb NOT NULL,
+    PRIMARY KEY(source_run_id,profile_id)
+);
+CREATE TABLE IF NOT EXISTS gold.personal_monthly_cashflow (
+    source_run_id text NOT NULL, profile_id text NOT NULL, period_month date NOT NULL,
+    total_income numeric(18,2) NOT NULL CHECK(total_income>=0),
+    total_expenses numeric(18,2) NOT NULL CHECK(total_expenses>=0),
+    loan_payment_total numeric(18,2) NOT NULL CHECK(loan_payment_total>=0),
+    transaction_count bigint NOT NULL, net_cash_flow numeric(18,2) NOT NULL,
+    PRIMARY KEY(source_run_id,profile_id,period_month),
+    FOREIGN KEY(source_run_id,profile_id) REFERENCES gold.personal_profiles(source_run_id,profile_id),
+    CHECK(net_cash_flow=total_income-total_expenses),CHECK(loan_payment_total<=total_expenses)
+);
+CREATE TABLE IF NOT EXISTS gold.personal_category_spending (
+    source_run_id text NOT NULL, profile_id text NOT NULL, period_month date NOT NULL,
+    category text NOT NULL, expense_total numeric(18,2) NOT NULL CHECK(expense_total>=0),
+    PRIMARY KEY(source_run_id,profile_id,period_month,category),
+    FOREIGN KEY(source_run_id,profile_id,period_month) REFERENCES gold.personal_monthly_cashflow(source_run_id,profile_id,period_month)
+);
+CREATE TABLE IF NOT EXISTS gold.personal_card_history (
+    source_run_id text NOT NULL,profile_id text NOT NULL,period_month date NOT NULL,
+    credit_limit numeric(18,2) NOT NULL CHECK(credit_limit>0),balance numeric(18,2) NOT NULL,
+    purchases numeric(18,2) NOT NULL,payments numeric(18,2) NOT NULL,
+    minimum_payment numeric(18,2) NOT NULL,delay_months integer NOT NULL,
+    PRIMARY KEY(source_run_id,profile_id,period_month),
+    FOREIGN KEY(source_run_id,profile_id) REFERENCES gold.personal_profiles(source_run_id,profile_id)
+);
+CREATE TABLE IF NOT EXISTS gold.credit_default_models (
+    source_run_id text PRIMARY KEY REFERENCES gold.publications(run_id),metrics jsonb NOT NULL
+);
+CREATE OR REPLACE VIEW serving.personal_profiles AS
+SELECT p.* FROM gold.personal_profiles p JOIN gold.active_publication a ON p.source_run_id=a.run_id;
+CREATE OR REPLACE VIEW serving.personal_monthly_cashflow AS
+SELECT p.* FROM gold.personal_monthly_cashflow p JOIN gold.active_publication a ON p.source_run_id=a.run_id;
+CREATE OR REPLACE VIEW serving.personal_category_spending AS
+SELECT p.* FROM gold.personal_category_spending p JOIN gold.active_publication a ON p.source_run_id=a.run_id;
+CREATE OR REPLACE VIEW serving.personal_card_history AS
+SELECT p.* FROM gold.personal_card_history p JOIN gold.active_publication a ON p.source_run_id=a.run_id;
+CREATE OR REPLACE VIEW serving.credit_default_models AS
+SELECT p.* FROM gold.credit_default_models p JOIN gold.active_publication a ON p.source_run_id=a.run_id;
+CREATE OR REPLACE VIEW serving.history_personal_profiles AS SELECT * FROM gold.personal_profiles;
+CREATE OR REPLACE VIEW serving.history_personal_monthly_cashflow AS SELECT * FROM gold.personal_monthly_cashflow;
+CREATE OR REPLACE VIEW serving.history_personal_category_spending AS SELECT * FROM gold.personal_category_spending;
+CREATE OR REPLACE VIEW serving.history_personal_card_history AS SELECT * FROM gold.personal_card_history;
+ALTER TABLE simulation.runs ADD COLUMN IF NOT EXISTS profile_id text;
+CREATE INDEX IF NOT EXISTS simulation_profile_idx ON simulation.runs(profile_id,created_at DESC);
+CREATE OR REPLACE VIEW serving.history_credit_default_models AS SELECT * FROM gold.credit_default_models;
+
+-- Producto derivado independiente de consulta: features y scores de Isolation Forest.
+CREATE TABLE IF NOT EXISTS gold.credit_card_anomalies (
+    source_run_id text NOT NULL,cust_id text NOT NULL,is_anomaly boolean NOT NULL,
+    anomaly_score double precision NOT NULL,isolation_score double precision,decision_score double precision,
+    credit_utilization double precision,payment_to_balance double precision,minimum_payment_to_balance double precision,
+    model_run_id text,scored_at timestamptz,features jsonb NOT NULL,
+    PRIMARY KEY(source_run_id,cust_id),
+    FOREIGN KEY(source_run_id,cust_id) REFERENCES gold.credit_cards(source_run_id,cust_id)
+);
+-- Conserva el historial publicado y materializa solo evidencia ya existente.
+INSERT INTO gold.credit_card_anomalies
+(source_run_id,cust_id,is_anomaly,anomaly_score,isolation_score,decision_score,credit_utilization,payment_to_balance,minimum_payment_to_balance,model_run_id,scored_at,features)
+SELECT source_run_id,cust_id,is_anomaly,anomaly_score,(features->>'isolation_score')::double precision,
+       (features->>'decision_score')::double precision,(features->>'credit_utilization')::double precision,
+       (features->>'payment_to_balance')::double precision,(features->>'minimum_payment_to_balance')::double precision,
+       features->>'model_run_id',(features->>'scored_at')::timestamptz,features
+FROM gold.credit_cards ON CONFLICT DO NOTHING;
+CREATE OR REPLACE VIEW serving.credit_card_anomalies AS
+SELECT a.* FROM gold.credit_card_anomalies a JOIN gold.active_publication p ON a.source_run_id=p.run_id;
+CREATE OR REPLACE VIEW serving.history_credit_card_anomalies AS SELECT * FROM gold.credit_card_anomalies;
+
+CREATE SCHEMA IF NOT EXISTS knowledge;
+CREATE TABLE IF NOT EXISTS knowledge.corpora (
+    version text PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now(),
+    document_count integer NOT NULL,chunk_count integer NOT NULL
+);
+CREATE TABLE IF NOT EXISTS knowledge.documents (
+    corpus_version text NOT NULL REFERENCES knowledge.corpora(version),document_id text NOT NULL,
+    title text NOT NULL,source_url text,publisher text NOT NULL,reviewed_at date NOT NULL,content_hash text NOT NULL,
+    PRIMARY KEY(corpus_version,document_id)
+);
+CREATE TABLE IF NOT EXISTS knowledge.chunks (
+    corpus_version text NOT NULL,chunk_id text NOT NULL,document_id text NOT NULL,
+    heading text NOT NULL,body text NOT NULL,content_hash text NOT NULL,
+    PRIMARY KEY(corpus_version,chunk_id),
+    FOREIGN KEY(corpus_version,document_id) REFERENCES knowledge.documents(corpus_version,document_id)
+);
+CREATE TABLE IF NOT EXISTS knowledge.active_corpus (
+    singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),version text NOT NULL REFERENCES knowledge.corpora(version)
+);

@@ -1,5 +1,6 @@
 """Experiencia personal de presentación, centrada en conversar y entender el dinero."""
 import html
+import os
 import re
 import sys
 from pathlib import Path
@@ -12,11 +13,19 @@ import streamlit as st
 
 from src.analytics.personal_finance import personal_snapshot
 from src.dashboard.ui import configure
+from src.dashboard.access import require_demo_access
 from src.ml.personal_agent import PersonalFinancialAgent, money, month_label
 
 configure('Mi futuro financiero','🌿')
+require_demo_access()
 st.markdown('''<style>
-.block-container {max-width:1130px;padding-top:1.2rem;padding-bottom:2rem;}
+.block-container {max-width:1030px;padding-top:1rem;padding-bottom:calc(2rem + env(safe-area-inset-bottom));}
+.month-cards {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin:.7rem 0 1rem;}
+.month-card {background:#fff;border:1px solid #dce5ee;border-radius:16px;padding:1.1rem;color:#122b4a;}
+.month-card span {display:block;color:#50667c;font-size:.8rem;margin-bottom:.45rem;}
+.month-card strong {font-size:clamp(1.1rem,3.8vw,1.9rem);white-space:nowrap;}
+[data-testid="stChatInput"] textarea {font-size:16px!important;}
+[data-testid="stChatInput"] {padding-bottom:env(safe-area-inset-bottom);}
 .stDeployButton, [data-testid="stAppDeployButton"] {display:none;}
 .personal-brand {display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1.5rem;}
 .personal-brand strong {color:#043263;letter-spacing:.02em;font-size:1rem;}
@@ -35,7 +44,20 @@ st.markdown('''<style>
 [data-testid="stMetric"] {border-radius:17px;box-shadow:0 4px 16px rgba(18,43,74,.035);padding:1.25rem;}
 [data-testid="stMetricLabel"] {font-size:.9rem;}
 [data-testid="stMetricValue"] {font-size:1.85rem;font-weight:650;}
-@media(max-width:640px) {.personal-hero {padding:1.5rem;} .demo-badge {font-size:.63rem;} .balance-note {padding:1rem;}}
+@media(max-width:640px) {
+.block-container {padding: .6rem 1rem calc(1.5rem + env(safe-area-inset-bottom));}
+.personal-brand {margin-bottom:.8rem;gap:.4rem;}.personal-brand strong {font-size:.77rem;}.demo-badge {font-size:.56rem;padding:.3rem .45rem;}
+.personal-hero {padding:1.25rem;border-radius:20px;margin-bottom:.8rem;}.personal-hero h1 {font-size:1.7rem!important;line-height:1.1;}.personal-hero p {font-size:.88rem;line-height:1.45;}
+.personal-hero:after {width:210px;height:210px;border-width:30px;right:-85px;top:-65px;}
+.month-cards {gap:.45rem;}.month-card {padding:.8rem .55rem;border-radius:13px;}.month-card span {font-size:.65rem;}.month-card strong {font-size:1.14rem;}
+.balance-note {padding:.85rem;margin-bottom:1rem;gap:.45rem;}.balance-note strong {font-size:1.05rem;}.balance-note span:last-child {font-size:.8rem;}
+.conversation-intro h2 {font-size:1.18rem;}.conversation-intro p {font-size:.84rem;}
+[data-testid="stHorizontalBlock"] {flex-wrap:nowrap!important;gap:.6rem!important;}
+[data-testid="stColumn"] {min-width:0!important;flex:1 1 0!important;}
+[data-testid="stButton"] button {min-height:48px;font-size:.83rem;padding:.5rem .4rem;}
+[data-testid="stChatMessage"] {padding:.8rem;margin-top:.4rem;}
+[data-testid="stChatMessageContent"] p {font-size:.94rem;}
+}
 </style>''',unsafe_allow_html=True)
 st.markdown('<div class="personal-brand"><strong>🌿 MI FUTURO FINANCIERO</strong><span class="demo-badge">ESPACIO DE DEMOSTRACIÓN</span></div>',unsafe_allow_html=True)
 
@@ -47,6 +69,14 @@ def load_profile():
 
 def render_result(result):
     if not result:
+        return
+    if result['kind']=='knowledge':
+        with st.expander('Fuentes de esta explicación'):
+            for source in result.get('sources',[]):
+                label=source['publisher']+' · '+source['title']
+                if source.get('source_url'):
+                    st.markdown('['+label+']('+source['source_url']+')')
+                else:st.caption(label)
         return
     if result['kind']=='categories':
         frame=pd.DataFrame(result['data'])
@@ -87,12 +117,9 @@ profile=snapshot['profile']
 name=html.escape(profile['display_name'])
 last=profile['latest_month']
 period=month_label(last['period_month'])
-st.markdown(f'<div class="personal-hero"><div class="eyebrow">HOLA, {name.upper()}</div><h1>Entiende tu dinero.<br>Da tu siguiente paso.</h1><p>Un espacio para resolver tus dudas, cuidar lo que has conseguido y probar tus decisiones antes de tomarlas.</p></div>',unsafe_allow_html=True)
+st.markdown(f'<div class="personal-hero"><div class="eyebrow">HOLA, {name.upper()}</div><h1>Tu dinero,<br>con más claridad.</h1><p>Entiende tu mes y prueba tu próxima decisión.</p></div>',unsafe_allow_html=True)
 st.caption(f'Tu mes de {period} · Importes en pesos de demostración')
-columns=st.columns(3)
-columns[0].metric('Lo que recibiste',money(last['total_income']))
-columns[1].metric('Lo que gastaste',money(last['total_expenses']))
-columns[2].metric('Lo que te quedó',money(last['net_cash_flow']))
+st.markdown('<div class="month-cards">'+''.join('<div class="month-card"><span>'+label+'</span><strong>'+money(last[key])+'</strong></div>' for label,key in [('Recibiste','total_income'),('Gastaste','total_expenses'),('Te quedó','net_cash_flow')])+'</div>',unsafe_allow_html=True)
 st.markdown(f'<div class="balance-note"><span>💚 Tienes <strong>{money(profile["available_savings"])} disponibles</strong></span><span>Podemos ayudarte a preparar una meta o revisar una compra.</span></div>',unsafe_allow_html=True)
 st.markdown('<div class="conversation-intro"><h2>¿Qué te gustaría entender hoy?</h2><p>Pregunta con tus palabras. Vamos paso a paso.</p></div>',unsafe_allow_html=True)
 
@@ -106,13 +133,14 @@ suggestions=[('🧭 Cómo voy','¿Cómo voy con mis finanzas?'),
              ('🌱 Mi ahorro','¿Cuánto puedo ahorrar al mes?'),
              ('🔎 Mis gastos','¿En qué estoy gastando más?')]
 selected_prompt=None
-for column,(label,question) in zip(st.columns(4),suggestions):
-    if column.button(label,use_container_width=True):
-        selected_prompt=question
+for offset in [0,2]:
+    for column,(label,question) in zip(st.columns(2),suggestions[offset:offset+2]):
+        if column.button(label,use_container_width=True):
+            selected_prompt=question
 
 if not st.session_state.messages:
     with st.chat_message('assistant',avatar='🌿'):
-        st.write(f'Hola, {profile["display_name"]}. Estoy aquí para ayudarte a entender tu dinero. Podemos revisar tu presupuesto, explorar una meta o ver qué cambiaría si haces una compra. ¿Por dónde empezamos?')
+        st.write(f'Hola, {profile["display_name"]}. Vamos paso a paso. ¿Revisamos tus gastos, una meta o una compra?')
 for message in st.session_state.messages:
     with st.chat_message(message['role'],avatar='🌿' if message['role']=='assistant' else None):
         st.markdown(re.sub(r'(?<!\\)\$',r'\$',message['content']))
@@ -120,6 +148,9 @@ for message in st.session_state.messages:
 
 typed=st.chat_input('Por ejemplo, ¿qué pasa si gasto 2,000 pesos más al mes?',max_chars=4000)
 prompt=typed or selected_prompt
+if prompt and len(st.session_state.messages)//2>=int(os.getenv('DEMO_MAX_MESSAGES','30')):
+    st.info('Has completado esta conversación de demostración. Puedes empezar una nueva desde la sección inferior.')
+    prompt=None
 if prompt:
     previous=[{'role':message['role'],'content':message['content']} for message in st.session_state.messages]
     st.session_state.messages.append({'role':'user','content':prompt})
@@ -140,3 +171,8 @@ with st.expander('Sobre este espacio de demostración'):
         st.session_state.messages=[]
         st.session_state.agent=PersonalFinancialAgent()
         st.rerun()
+
+    if os.getenv('DEMO_REQUIRE_ACCESS','false').lower() in ['true','1','yes']:
+        if st.button('Salir de la demostración'):
+            st.session_state.clear()
+            st.rerun()

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "language": "es",
+  "documents": [
+    {
+      "document_id": "presupuesto",
+      "title": "Presupuesto: ingresos, gastos y margen",
+      "file": "finanzas/presupuesto.md",
+      "source_url": "https://webappsos.condusef.gob.mx/EducaTuCartera/presupuesto.html",
+      "publisher": "CONDUSEF",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "emergencia",
+      "title": "Fondo de emergencia: una reserva para imprevistos",
+      "file": "finanzas/emergencia.md",
+      "source_url": "https://www.condusef.gob.mx/?idc=2345&p=contenido",
+      "publisher": "CONDUSEF",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "pago_minimo",
+      "title": "Pago mínimo y pago para no generar intereses",
+      "file": "finanzas/pago_minimo.md",
+      "source_url": "https://revista.condusef.gob.mx/usuario-inteligente/ponlo-en-la-balanza/2026/02/pago-minimo-la-opcion-mas-cara-de-tu-tarjeta/",
+      "publisher": "CONDUSEF",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "cat",
+      "title": "CAT: comparar el costo de un crédito",
+      "file": "finanzas/cat.md",
+      "source_url": "https://www.banxico.org.mx/CAT/",
+      "publisher": "Banco de México",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "tarjeta",
+      "title": "Saldo y límite de la tarjeta",
+      "file": "finanzas/tarjeta.md",
+      "source_url": "https://www.gob.mx/condusef/articulos/no-te-pierdas-en-tu-tarjeta-de-credito?idiom=es",
+      "publisher": "CONDUSEF",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "flujo_saldo",
+      "title": "Diferencia entre saldo disponible y flujo mensual",
+      "file": "finanzas/flujo_saldo.md",
+      "source_url": null,
+      "publisher": "Guía del gemelo",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "simulaciones",
+      "title": "Cómo interpretar una proyección de tu dinero",
+      "file": "finanzas/simulaciones.md",
+      "source_url": null,
+      "publisher": "Guía del gemelo",
+      "reviewed_at": "2026-11-19"
+    },
+    {
+      "document_id": "riesgo_modelos",
+      "title": "Riesgo, anomalías y límites de la demostración",
+      "file": "finanzas/riesgo_modelos.md",
+      "source_url": null,
+      "publisher": "Guía del gemelo",
+      "reviewed_at": "2026-11-19"
+    }
+  ]
+}

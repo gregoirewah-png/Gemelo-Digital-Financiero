@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0",
+  "catalog_version": "2026.11.19",
   "project": {
     "name": "Gemelo Digital Financiero Personal",
     "description": "Prototipo académico de análisis financiero personal basado en una arquitectura Medallion (Bronze, Silver y Gold).",
@@ -492,6 +492,69 @@
         "La unicidad de user_id no está confirmada; record_date sugiere que podrían existir múltiples registros por usuario.",
         "No debe asumirse que las filas de este dataset se pueden unir con Dataset1 o Dataset2 sin una clave y una relación validadas."
       ]
+    },
+    "dataset2_anomalies": {
+      "id": "dataset2_anomalies",
+      "name": "Base analítica derivada de Isolation Forest",
+      "technical_name": "credit_card_anomalies",
+      "role_in_project": "Base adicional derivada; no es una cuarta fuente de clientes ni Random Forest.",
+      "source": "Dataset 2 Silver → Gold credit_card_balances → Isolation Forest → Gold credit_card_anomalies",
+      "grain": "Una fila por source_run_id y cust_id; cubre todos los clientes válidos, no solo los atípicos.",
+      "gold_path": "s3a://gold/credit_card_anomalies/run_id=<run_id>",
+      "sql_table": "gold.credit_card_anomalies",
+      "active_view": "serving.credit_card_anomalies",
+      "history_view": "serving.history_credit_card_anomalies",
+      "primary_key": [
+        "source_run_id",
+        "cust_id"
+      ],
+      "relationship": "1:1 con gold.credit_cards por publicación y cliente; clave foránea obligatoria.",
+      "model": {
+        "algorithm": "sklearn.ensemble.IsolationForest",
+        "n_estimators": 200,
+        "contamination": 0.02,
+        "seed": 42,
+        "preprocessing": "Ratios con balance cero como NaN, log1p y mediana con indicadores de ausencia; no se eliminan los atípicos."
+      },
+      "features": [
+        "balance",
+        "credit_limit",
+        "purchases",
+        "cash_advance",
+        "payments",
+        "minimum_payments",
+        "purchases_trx",
+        "prc_full_payment",
+        "credit_utilization",
+        "payment_to_balance",
+        "minimum_payment_to_balance"
+      ],
+      "ratios": {
+        "credit_utilization": "balance/credit_limit, fracción; no porcentaje",
+        "payment_to_balance": "payments/balance si balance>0",
+        "minimum_payment_to_balance": "minimum_payments/balance si balance>0"
+      },
+      "scores": {
+        "isolation_score": "score_samples; menor significa más atípico",
+        "anomaly_score": "-score_samples; mayor significa más atípico, no probabilidad",
+        "decision_score": "score_samples - offset_; negativo marca atípico",
+        "is_anomaly": "predict == -1"
+      },
+      "provenance": [
+        "source_run_id",
+        "model_run_id",
+        "scored_at",
+        "features JSONB",
+        "manifest de publicación",
+        "versión Delta"
+      ],
+      "legacy_migration": "Publicaciones antiguas recuperan solo la evidencia existente de gold.credit_cards.features. Scores y procedencia que no estaban guardados permanecen NULL; nunca se reconstruyen inventando valores.",
+      "limitations": [
+        "No hay etiquetas de fraude o impago para medir precisión supervisada.",
+        "El 2% configurado es un umbral de contaminación, no una tasa observada de fraude.",
+        "No se unen estas identidades con el perfil ficticio ni con UCI.",
+        "XGBoost usa la base UCI de impago, distinta de esta base."
+      ]
     }
   },
   "gold_layer_status": {
@@ -508,6 +571,10 @@
       "dataset3": [
         "serving.financial_profiles",
         "serving.profile_features"
+      ],
+      "dataset2_anomalies": [
+        "serving.credit_card_anomalies",
+        "serving.history_credit_card_anomalies"
       ]
     },
     "simulations": [

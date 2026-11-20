@@ -19,7 +19,7 @@ def configure(root):
             values[name] = value or ''
     for name in ['POSTGRES_PASSWORD', 'GOLD_READER_PASSWORD', 'MINIO_ROOT_PASSWORD',
                  'AIRFLOW_ADMIN_PASSWORD', 'AIRFLOW_SECRET_KEY',
-                 'PGADMIN_DEFAULT_PASSWORD', 'OPERATIONS_PASSWORD']:
+                 'PGADMIN_DEFAULT_PASSWORD', 'OPERATIONS_PASSWORD', 'EXECUTIVE_PASSWORD', 'DEMO_ACCESS_CODE']:
         if not values.get(name):
             values[name] = secrets.token_urlsafe(24)
     if not values.get('AIRFLOW_FERNET_KEY'):

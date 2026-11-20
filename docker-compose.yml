@@ -1,7 +1,7 @@
 name: gemelo-bbva
 
 x-runtime: &runtime
-  image: gemelo-bbva-runtime:2026.11.10-presentacion
+  image: gemelo-bbva-runtime:2026.11.19-movil-rag
   restart: unless-stopped
   env_file: .env
   working_dir: /opt/airflow/project
@@ -24,7 +24,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PUBLIC_PORT:-15432}:5432"
+      - "127.0.0.1:${POSTGRES_PUBLIC_PORT:-15432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -37,8 +37,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address :9001
     ports:
-      - "${MINIO_PUBLIC_PORT:-19100}:9000"
-      - "${MINIO_CONSOLE_PORT:-19101}:9001"
+      - "127.0.0.1:${MINIO_PUBLIC_PORT:-19100}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-19101}:9001"
     volumes:
       - minio_data:/data
 
@@ -66,7 +66,7 @@ services:
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Configura AIRFLOW_SECRET_KEY}
     command: bash scripts/start_airflow.sh
     ports:
-      - "${AIRFLOW_PUBLIC_PORT:-18080}:8080"
+      - "127.0.0.1:${AIRFLOW_PUBLIC_PORT:-18080}:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
       interval: 10s
@@ -96,7 +96,7 @@ services:
     <<: *runtime
     command: ["bash", "-c", "exec streamlit run src/dashboard/operations.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true"]
     ports:
-      - "${OPERATIONS_PUBLIC_PORT:-18502}:8501"
+      - "127.0.0.1:${OPERATIONS_PUBLIC_PORT:-18503}:8501"
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8501/_stcore/health"]
       interval: 10s
@@ -107,12 +107,55 @@ services:
       platform_init:
         condition: service_completed_successfully
 
+  executive:
+    <<: *runtime
+    command: ["bash", "-c", "exec streamlit run src/dashboard/executive.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true"]
+    ports:
+      - "127.0.0.1:${EXECUTIVE_PUBLIC_PORT:-18502}:8501"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    depends_on:
+      platform_init:
+        condition: service_completed_successfully
+
+  mobile_user:
+    <<: *runtime
+    profiles: ["mobile"]
+    environment:
+      <<: *runtime-env
+      DEMO_REQUIRE_ACCESS: "true"
+      STREAMLIT_BROWSER_SERVER_ADDRESS: ${PUBLIC_USER_HOST:-localhost}
+      STREAMLIT_BROWSER_SERVER_PORT: "443"
+    command: ["bash", "-c", "exec streamlit run src/dashboard/app.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    depends_on:
+      platform_init:
+        condition: service_completed_successfully
+
+  mobile_tunnel:
+    image: cloudflare/cloudflared@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d
+    profiles: ["mobile"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --protocol http2 --url http://mobile_user:8501
+    depends_on:
+      mobile_user:
+        condition: service_healthy
+
   pgadmin:
     image: dpage/pgadmin4@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
     env_file: .env
     restart: unless-stopped
     ports:
-      - "${PGADMIN_PUBLIC_PORT:-15050}:80"
+      - "127.0.0.1:${PGADMIN_PUBLIC_PORT:-15050}:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:

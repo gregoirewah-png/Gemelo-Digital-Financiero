@@ -137,6 +137,11 @@ def publish(run_id):
         rows = [(run_id, *[None if pd.isna(row[c]) else row[c] for c in names], Json(canonical_record(row)))
                 for row in combined.to_dict('records')]
         execute_values(cursor, 'INSERT INTO gold.credit_cards(source_run_id,' + ','.join(names) + ',features) VALUES %s', rows, page_size=2000)
+        anomaly_names=['cust_id','is_anomaly','anomaly_score','isolation_score','decision_score',
+                       'credit_utilization','payment_to_balance','minimum_payment_to_balance','model_run_id','scored_at']
+        anomaly_rows=[(run_id,*[None if pd.isna(row[c]) else row[c] for c in anomaly_names],Json(canonical_record(row)))
+                      for row in frames['anomalies'].to_dict('records')]
+        execute_values(cursor,'INSERT INTO gold.credit_card_anomalies(source_run_id,'+','.join(anomaly_names)+',features) VALUES %s',anomaly_rows,page_size=2000)
         names = ['user_id','record_date','monthly_income_usd','monthly_expenses_usd','savings_usd','credit_score','savings_capacity','emergency_fund_months']
         rows = [(run_id, *[row[c] for c in names], Json(canonical_record(row)))
                 for row in frames['financial_profiles'].to_dict('records')]
@@ -145,5 +150,5 @@ def publish(run_id):
             insert_personal(cursor,run_id,personal,model_metrics)
         cursor.execute('INSERT INTO gold.active_publication(singleton,run_id) VALUES (true,%s) '
                        'ON CONFLICT(singleton) DO UPDATE SET run_id=excluded.run_id', (run_id,))
-    record_metrics(records_written=sum(len(v) for k, v in frames.items() if k != 'anomalies'), validation=checks)
+    record_metrics(records_written=sum(len(v) for v in frames.values()), validation=checks)
     print(json.dumps({'run_id': run_id, 'validation': checks}, ensure_ascii=False))

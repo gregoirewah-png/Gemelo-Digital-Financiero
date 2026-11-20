@@ -22,7 +22,7 @@ def test_authenticated_operations_view():
     app.session_state['operations_authenticated']=True
     app.run(timeout=30)
     assert not app.exception
-    assert len(app.tabs)==6
+    assert len(app.tabs)==4
 
 
 def test_login_handles_unicode_and_accepts_configured_credentials():
@@ -68,3 +68,45 @@ def test_user_expense_shortcut_returns_chart_without_external_ai():
     assert 'tres gastos principales' in answer['content']
     assert answer['result']['kind']=='categories'
     assert app.get('plotly_chart')
+
+
+def test_executive_login_is_separate_from_engineering():
+    app=AppTest.from_file(str(ROOT/'src/dashboard/executive.py'))
+    app.session_state['operations_authenticated']=True
+    app.run(timeout=30)
+    assert not app.exception and len(app.text_input)==2 and not app.tabs
+
+
+def test_authenticated_executive_has_business_content_without_raw_logs():
+    app=AppTest.from_file(str(ROOT/'src/dashboard/executive.py'))
+    app.session_state['executive_authenticated']=True
+    app.run(timeout=30)
+    assert not app.exception
+    assert [tab.label for tab in app.tabs]==['Tendencias','Alertas y segmentos','Modelos y escenarios']
+    assert not app.get('code') and not app.get('json')
+    assert len(app.metric)>=4 and app.get('plotly_chart')
+
+
+def test_mobile_gate_stops_before_profile_read(monkeypatch):
+    from unittest.mock import Mock
+    import src.analytics.personal_finance as finance
+    monkeypatch.setenv('DEMO_REQUIRE_ACCESS','true')
+    read=Mock(side_effect=AssertionError('No debe consultar Gold antes del acceso'))
+    monkeypatch.setattr(finance,'personal_snapshot',read)
+    app=AppTest.from_file(str(ROOT/'src/dashboard/app.py')).run(timeout=30)
+    assert not app.exception and len(app.text_input)==1
+    assert not app.chat_input
+    app.text_input[0].set_value('clave equivocada con acento á')
+    app.button[0].click().run(timeout=30)
+    assert not app.exception and app.error
+    read.assert_not_called()
+
+
+def test_mobile_correct_access_reveals_only_user_chat(monkeypatch):
+    import os
+    monkeypatch.setenv('DEMO_REQUIRE_ACCESS','true')
+    app=AppTest.from_file(str(ROOT/'src/dashboard/app.py')).run(timeout=30)
+    app.text_input[0].set_value(os.environ['DEMO_ACCESS_CODE'])
+    app.button[0].click().run(timeout=30)
+    assert not app.exception and app.session_state['demo_authenticated']
+    assert app.chat_input and not app.tabs and not app.selectbox

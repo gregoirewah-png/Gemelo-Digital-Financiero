@@ -1,4 +1,4 @@
-"""Estilo común y lectura SQL para las dos experiencias."""
+"""Estilo común y lectura SQL para las tres experiencias."""
 import pandas as pd
 import streamlit as st
 
