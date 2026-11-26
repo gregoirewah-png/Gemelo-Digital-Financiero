@@ -46,7 +46,8 @@ def test_expenses_render_a_chart_with_evidence(agent):
 
 
 def test_risk_question_about_card_keeps_risk_intent(agent):
-    assert 'riesgo **bajo**' in agent.generar_respuesta('¿Cuál es el riesgo de mi tarjeta?')
+    answer=agent.generar_respuesta('¿Cuál es el riesgo de mi tarjeta?')
+    assert '**bajo**' in answer and 'ficticio' in answer
 
 
 def test_purchase_amount_followup(agent,monkeypatch):
@@ -89,3 +90,67 @@ def test_large_horizon_is_rejected_instead_of_silently_defaulting(agent,snapshot
     assert config['months']==120
     with pytest.raises(ValueError):
         MonteCarloConfig(**config).validate()
+
+
+@pytest.mark.parametrize('prompt',[
+    'que pasa si gasto 15000',
+    'quiero gastar 15000',
+    '¿Me alcanza para una compra de 15,000 pesos?',
+])
+def test_plain_spending_question_explains_immediate_balance(agent,snapshot,monkeypatch,prompt):
+    calls=[]
+    monkeypatch.setattr(agent,'_simulate',lambda snap,params:calls.append(params) or {})
+    answer=agent.generar_respuesta(prompt)
+    assert 'un gasto de una sola vez de $15,000' in answer
+    assert service.money(float(snapshot['profile']['available_savings'])-15000) in answer
+    assert 'ahorro acumulado' in answer
+    assert 'pagos cada mes' in answer
+    assert 'saldo central' not in answer
+    assert calls[0]['scenarios'][1]['one_time_expense']==15000
+
+
+@pytest.mark.parametrize('question',[
+ '¿Cuál es mi probabilidad de impago?', '¿Qué probabilidad tengo de no pagar?',
+ 
+ '¿Qué riesgo tengo?', '¿Voy bien con mis finanzas?', '¿Cómo está mi salud financiera?',
+])
+def test_default_questions_are_plain_and_explicitly_fictional(agent,question):
+    answer=agent.generar_respuesta(question)
+    assert '9.0%' in answer and 'ficticio' in answer
+    assert 'no describe tu riesgo personal' in answer
+    assert not any(term in answer.lower() for term in ['xgboost','isolation forest','brier','auc','gold','sql'])
+
+
+@pytest.mark.parametrize('question',[
+ 'Hola', '¿Cómo voy con mis finanzas?', '¿Cuánto puedo ahorrar?',
+ '¿Cuánto tengo ahorrado?', '¿Qué saldo tengo disponible?',
+ '¿En qué estoy gastando más?', '¿Cuáles son mis deudas?',
+ '¿Cuánto debo en mi tarjeta?', '¿Cuánto pago de mi préstamo?',
+])
+def test_everyday_answers_use_plain_language(agent,question):
+    answer=agent.generar_respuesta(question)
+    assert answer
+    assert not any(term in answer.lower() for term in ['xgboost','isolation forest','brier','roc auc','gold','sql'])
+
+
+@pytest.mark.parametrize('question',['No puedo pagar mi tarjeta','¿Qué pasa si dejo de pagar?','¿Y si me atraso?'])
+def test_payment_difficulty_requests_missing_context(agent,question):
+    answer=agent.generar_respuesta(question)
+    assert 'cuánto te falta' in answer or 'Puedo ayudarte' in answer
+
+
+@pytest.mark.parametrize('question,expected',[
+ ('¿Cuánto me quedó el último mes?','te quedaron'),
+ ('¿Cómo empiezo a ahorrar?','mes promedio'),
+ ('¿Qué es un fondo de emergencia?','imprevistos'),
+ ('¿Cómo evito gastar por impulso?','cuánto cuesta'),
+ ('¿Puedes garantizar que nunca me quedaré sin dinero?','No puedo garantizar'),
+ ('¿Puedes entrar a mi cuenta BBVA?','No accedo'),
+ ('¿Mi dinero está invertido?','No tengo información'),
+ ('Dime cuánto ganaré con una inversión','No tengo información'),
+ ('¿Puedes aprobarme un crédito?','No accedo'),
+])
+def test_followup_intents_have_grounded_answers(agent,question,expected):
+    answer=agent.generar_respuesta(question)
+    assert expected.lower() in answer.lower()
+    assert not any(term in answer.lower() for term in ['xgboost','isolation forest','brier','roc auc','gold','sql'])

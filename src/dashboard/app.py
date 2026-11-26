@@ -67,7 +67,7 @@ def load_profile():
     return personal_snapshot()
 
 
-def render_result(result):
+def render_result(result, message_index):
     if not result:
         return
     if result['kind']=='knowledge':
@@ -85,25 +85,26 @@ def render_result(result):
                       color_discrete_sequence=['#148b90'],labels={'expense_total':'Pesos','category':''})
         figure.update_layout(height=300,margin=dict(l=0,r=15,t=15,b=0),paper_bgcolor='rgba(0,0,0,0)',
                              plot_bgcolor='rgba(0,0,0,0)',font_color='#24415f')
-        st.plotly_chart(figure,use_container_width=True,config={'displayModeBar':False})
+        st.plotly_chart(figure,key=f'message_{message_index}_categories',use_container_width=True,config={'displayModeBar':False})
     if result['kind']=='simulation':
-        frame=pd.DataFrame(result['data']['results'])
-        names=list(dict.fromkeys(frame.scenario))
-        band=frame[frame.scenario==names[-1]].sort_values('month')
-        figure=go.Figure()
-        figure.add_trace(go.Scatter(x=band.period_month,y=band.p95,mode='lines',line_width=0,showlegend=False,hoverinfo='skip'))
-        figure.add_trace(go.Scatter(x=band.period_month,y=band.p05,mode='lines',line_width=0,fill='tonexty',
-                                   fillcolor='rgba(20,139,144,.13)',name='Rango orientativo',hoverinfo='skip'))
-        for index,name in enumerate(names):
-            selected=frame[frame.scenario==name].sort_values('month')
-            figure.add_trace(go.Scatter(x=selected.period_month,y=selected.p50,name=name,mode='lines',
-                                       line=dict(width=3,color=['#148b90','#1464a5','#dd9a35'][index%3]),
-                                       hovertemplate='%{x|%b %Y} · $%{y:,.0f}<extra>%{fullData.name}</extra>'))
-        figure.update_layout(height=330,margin=dict(l=0,r=10,t=20,b=0),legend=dict(orientation='h',y=1.15),
-                             yaxis_tickprefix='$',yaxis_tickformat=',.0f',font_color='#24415f',
-                             paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',xaxis_title=None,yaxis_title='Saldo estimado')
-        st.plotly_chart(figure,use_container_width=True,config={'displayModeBar':False})
-        st.caption('Cada camino representa una posibilidad basada en tu historial de demostración. El saldo final puede variar.')
+        with st.expander('Ver cómo cambiaría mi saldo en los próximos meses'):
+            frame=pd.DataFrame(result['data']['results'])
+            names=list(dict.fromkeys(frame.scenario))
+            band=frame[frame.scenario==names[-1]].sort_values('month')
+            figure=go.Figure()
+            figure.add_trace(go.Scatter(x=band.period_month,y=band.p95,mode='lines',line_width=0,showlegend=False,hoverinfo='skip'))
+            figure.add_trace(go.Scatter(x=band.period_month,y=band.p05,mode='lines',line_width=0,fill='tonexty',
+                                       fillcolor='rgba(20,139,144,.13)',name='Rango orientativo',hoverinfo='skip'))
+            for index,name in enumerate(names):
+                selected=frame[frame.scenario==name].sort_values('month')
+                figure.add_trace(go.Scatter(x=selected.period_month,y=selected.p50,name=name,mode='lines',
+                                           line=dict(width=3,color=['#148b90','#1464a5','#dd9a35'][index%3]),
+                                           hovertemplate='%{x|%b %Y} · $%{y:,.0f}<extra>%{fullData.name}</extra>'))
+            figure.update_layout(height=330,margin=dict(l=0,r=10,t=20,b=0),legend=dict(orientation='h',y=1.15),
+                                 yaxis_tickprefix='$',yaxis_tickformat=',.0f',font_color='#24415f',
+                                 paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',xaxis_title=None,yaxis_title='Saldo estimado')
+            st.plotly_chart(figure,key=f'message_{message_index}_simulation',use_container_width=True,config={'displayModeBar':False})
+            st.caption('Cada camino representa una posibilidad basada en tu historial de demostración. El saldo final puede variar.')
 
 
 try:
@@ -141,10 +142,10 @@ for offset in [0,2]:
 if not st.session_state.messages:
     with st.chat_message('assistant',avatar='🌿'):
         st.write(f'Hola, {profile["display_name"]}. Vamos paso a paso. ¿Revisamos tus gastos, una meta o una compra?')
-for message in st.session_state.messages:
+for message_index, message in enumerate(st.session_state.messages):
     with st.chat_message(message['role'],avatar='🌿' if message['role']=='assistant' else None):
         st.markdown(re.sub(r'(?<!\\)\$',r'\$',message['content']))
-        render_result(message.get('result'))
+        render_result(message.get('result'), message_index)
 
 typed=st.chat_input('Por ejemplo, ¿qué pasa si gasto 2,000 pesos más al mes?',max_chars=4000)
 prompt=typed or selected_prompt
@@ -161,7 +162,7 @@ if prompt:
             answer=st.session_state.agent.generar_respuesta(prompt,history=previous)
         st.markdown(re.sub(r'(?<!\\)\$',r'\$',answer))
         result=st.session_state.agent.last_result
-        render_result(result)
+        render_result(result, len(st.session_state.messages))
     st.session_state.messages.append({'role':'assistant','content':answer,'result':result})
 
 with st.expander('Sobre este espacio de demostración'):

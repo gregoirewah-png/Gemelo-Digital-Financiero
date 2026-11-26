@@ -110,3 +110,20 @@ def test_mobile_correct_access_reveals_only_user_chat(monkeypatch):
     app.button[0].click().run(timeout=30)
     assert not app.exception and app.session_state['demo_authenticated']
     assert app.chat_input and not app.tabs and not app.selectbox
+
+
+def test_repeated_purchase_and_expenses_keep_distinct_chat_charts():
+    """Repetir respuestas idénticas no debe bloquear el historial de Streamlit."""
+    for button_index, kind in [(1, 'simulation'), (3, 'categories')]:
+        app=AppTest.from_file(str(ROOT/'src/dashboard/app.py'))
+        app.session_state['demo_authenticated']=True
+        app.run(timeout=30)
+        for _ in range(2):
+            app.button[button_index].click().run(timeout=60)
+            assert not app.exception
+            assert app.session_state['messages'][-1]['result']['kind']==kind
+        app.run(timeout=30)
+        assert not app.exception
+        charts=app.get('plotly_chart')
+        assert len(charts)==2
+        assert len({chart.proto.id for chart in charts})==2
